@@ -6,7 +6,6 @@ license:             AGPL-3
 license-file:        LICENSE
 author:              Ken Micklas
 maintainer:          kmicklas@gmail.com
--- copyright:           
 category:            Development
 build-type:          Simple
 extra-source-files:  README.md
@@ -14,8 +13,5 @@ cabal-version:       >=1.10
 
 executable redoak
   main-is:             Main.hs
-  -- other-modules:       
-  -- other-extensions:    
   build-depends:       base >=4.8 && <4.9
-  -- hs-source-dirs:      
   default-language:    Haskell2010
