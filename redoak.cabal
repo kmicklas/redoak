@@ -21,4 +21,7 @@ executable redoak
     containers,
     free,
     ghcjs-base,
-    ghcjs-dom
+    ghcjs-dom,
+    mtl,
+    text,
+    transformers
