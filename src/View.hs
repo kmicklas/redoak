@@ -33,3 +33,6 @@ effectView :: View -> Dom ()
 effectView new = do
   Just body <- askDocument >>= liftIO . getBody
   return ()
+
+--makeNode :: View -> Dom Node
+--makeNode (id := Node cs es) = el "div" 
