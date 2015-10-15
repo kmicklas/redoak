@@ -40,10 +40,10 @@ stringify = fmap stringifyElem
 
 stringifyElem :: Element Char -> Element Text
 stringifyElem = \case
-  Atom char -> Atom $ T.singleton char
+  Atom char   -> Atom $ T.singleton char
   Node forest -> case mapM atom forest of
     Just seqString -> Atom $ T.pack $ toList seqString
-    Nothing        -> Node $ stringifyElem <$> forest
+    Nothing        -> Node $ stringify forest
   where atom :: Element Char -> Maybe Char
         atom = \case
           Atom c -> Just c
