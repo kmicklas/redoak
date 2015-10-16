@@ -13,10 +13,12 @@ import GHCJS.DOM.EventM (on, mouseClientXY)
 import View
 import Tree
 import Editor
+import UI
 
 main = runWebGUI $ \ webView -> do
   enableInspector webView
   Just doc <- webViewGetDomDocument webView
+  runEditor doc
   Just body <- getBody doc
   setInnerHTML body (Just "<h1>Hello World</h1>")
   on doc click $ do
