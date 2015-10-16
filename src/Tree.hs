@@ -17,7 +17,13 @@ data Element a
   | Node (Tree a)
   deriving (Eq, Ord, Functor, Foldable, Traversable)
 
-type Path = ([Word], Word, Word)
+type Range = (Int, Int)
+
+data Path
+  = Path
+    { indices :: [Int]
+    , bounds :: Range
+    }
 
 type Edit = (Tree Char, Path) -> (Tree Char, Path)
 
