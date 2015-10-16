@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
+
 module Tree
   ( Tree
   , Element(..)
@@ -15,7 +16,7 @@ type Tree a = Seq (Element a)
 data Element a
   = Atom a
   | Node { children :: (Tree a) }
-  deriving (Eq, Ord, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 type Range = (Int, Int)
 
