@@ -12,7 +12,7 @@ import Data.Foldable
 import Data.Text hiding (map)
 import Data.Sequence
 import GHCJS.DOM.Document (getBody)
-import GHCJS.DOM.Node (Node)
+import GHCJS.DOM.Node (Node, appendChild)
 
 import Dom
 import React
@@ -33,7 +33,7 @@ effectView new = do
   return ()
 
 makeNode :: View -> Dom Node
-makeNode (id := Text cs t) = el "span" (attrs id cs) [text t]
+makeNode (id := Text cs t) = el "span" (attrs id cs) [textNode t]
 makeNode (id := Node cs es) = el "div" (attrs id cs) $ map makeNode $ toList es
 
 attrs :: Text -> [Text] -> [(Text, Text)]

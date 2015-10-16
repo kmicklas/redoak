@@ -1,6 +1,6 @@
 module Dom 
   ( Dom(..)
-  , text
+  , textNode
   , el
   , askDocument
   ) where
@@ -28,8 +28,8 @@ type HTMLElement = HTMLElement.HTMLElement
 unsafeAsHTMLElement :: Node -> HTMLElement
 unsafeAsHTMLElement node = Types.castToHTMLElement node
 
-text :: Text -> Dom Node
-text s = Dom $ \doc -> do
+textNode :: Text -> Dom Node
+textNode s = Dom $ \doc -> do
   Just n <- Document.createTextNode doc s
   pure $ Node.toNode n
 
