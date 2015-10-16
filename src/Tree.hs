@@ -14,7 +14,7 @@ type Tree a = Seq (Element a)
 
 data Element a
   = Atom a
-  | Node (Tree a)
+  | Node { children :: (Tree a) }
   deriving (Eq, Ord, Functor, Foldable, Traversable)
 
 type Range = (Int, Int)
@@ -25,23 +25,9 @@ data Path
     , bounds :: Range
     }
 
-type Edit = (Tree Char, Path) -> (Tree Char, Path)
+type Edit a = (Tree a, Path) -> (Tree a, Path)
 
-{-
-switchBounds :: Edit
-switchBounds (t, (p, start, end)) = (t, (p, end, start))
-
-selectAll :: Edit
-selectAll (t, ([], _, _)) = (t, ([], 0, S.length t))
-selectAll (t, (c : cs, start, end)) = selectAll
-
-selectNone :: Edit
-
-shiftLeft :: Edit
-shiftLeft ([],
--}
-
-stringify ::  Tree Char -> Tree Text
+stringify :: Tree Char -> Tree Text
 stringify = fmap stringifyElem
 
 stringifyElem :: Element Char -> Element Text
@@ -54,3 +40,39 @@ stringifyElem = \case
         atom = \case
           Atom c -> Just c
           Node _ -> Nothing
+
+localMove :: (Int -> Range -> Range) -> Edit a
+localMove f (t, Path is b) = (t, Path is $ fix t $ move t is b)
+  where move t [] b = f (S.length t) b
+        move t (i : is) b = move (children $ S.index t i) is b
+        fix t (start, end) =
+          if min start end < 0 || max start end > S.length t
+          then b
+          else (start, end)
+
+switchBounds :: Edit a
+switchBounds = localMove $ \ _ (start, end) -> (end, start)
+
+startMin :: Edit a
+startMin = localMove $ \ _ (_, end) -> (0, end)
+
+endMax :: Edit a
+endMax = localMove $ \ size (start, _) -> (start, size)
+
+selectNoneStart :: Edit a
+selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
+
+selectNoneEnd :: Edit a
+selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
+
+shiftLeft :: Edit a
+shiftLeft = localMove $ \ _ (start, end) -> (start + 1, end + 1)
+
+shiftRight :: Edit a
+shiftRight = localMove $ \ _ (start, end) -> (start - 1, end - 1)
+
+moveLeft :: Edit a
+moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
+
+moveRight :: Edit a
+moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
