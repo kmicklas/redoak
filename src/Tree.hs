@@ -8,14 +8,14 @@ module Tree
 
 import Data.Foldable
 import Data.Sequence as S
-import Data.Text     as T
+import Data.Text     as T hiding (foldr)
 import Data.Word
 
-type Tree a = Seq (Element a)
+type Tree i a = Seq (Element i a)
 
-data Element a
-  = Atom a
-  | Node { children :: (Tree a) }
+data Element i a
+  = Atom { ident :: i, value :: a }
+  | Node { ident :: i, children :: (Tree i a) }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 type Range = (Int, Int)
@@ -26,23 +26,15 @@ data Path
     , bounds :: Range
     }
 
-type Edit a = (Tree a, Path) -> (Tree a, Path)
+type Edit i a = (Tree i a, Path) -> (Tree i a, Path)
 
-stringify :: Tree Char -> Tree Text
-stringify = fmap stringifyElem
+stringify :: Tree i Char -> Tree i String
+stringify = fromList . foldr join []
+  where join (Atom i c) (Atom _ cs : rest) = Atom i (c : cs) : rest
+        join (Atom i c) rest = Atom i [c] : rest
+        join (Node i ts) rest = Node i (stringify ts) : rest
 
-stringifyElem :: Element Char -> Element Text
-stringifyElem = \case
-  Atom char   -> Atom $ T.singleton char
-  Node forest -> case mapM atom forest of
-    Just seqString -> Atom $ T.pack $ toList seqString
-    Nothing        -> Node $ stringify forest
-  where atom :: Element Char -> Maybe Char
-        atom = \case
-          Atom c -> Just c
-          Node _ -> Nothing
-
-change :: Tree a -> Edit a
+change :: Tree i a -> Edit i a
 change new (t, Path [] (start, end)) = (t', Path [] (start', end'))
   where t' = S.take (min start end) t >< new >< S.drop (max start end) t
         (start', end') =
@@ -50,10 +42,10 @@ change new (t, Path [] (start, end)) = (t', Path [] (start', end'))
           then (start, start + S.length new)
           else (end + S.length new, end)
 change new (t, Path (i : is) b) = (t', Path (i : is) b')
-  where t' = S.update i (Node sub) t
+  where t' = S.update i (Node (ident $ S.index t i) sub) t
         (sub, Path _ b') = change new (children $ S.index t i, Path is b)
 
-localMove :: (Int -> Range -> Range) -> Edit a
+localMove :: (Int -> Range -> Range) -> Edit i a
 localMove f (t, Path is b) = (t, Path is $ fix t $ move t is b)
   where move t [] b = f (S.length t) b
         move t (i : is) b = move (children $ S.index t i) is b
@@ -62,29 +54,29 @@ localMove f (t, Path is b) = (t, Path is $ fix t $ move t is b)
           then b
           else (start, end)
 
-switchBounds :: Edit a
+switchBounds :: Edit i a
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
 
-startMin :: Edit a
+startMin :: Edit i a
 startMin = localMove $ \ _ (_, end) -> (0, end)
 
-endMax :: Edit a
+endMax :: Edit i a
 endMax = localMove $ \ size (start, _) -> (start, size)
 
-selectNoneStart :: Edit a
+selectNoneStart :: Edit i a
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: Edit a
+selectNoneEnd :: Edit i a
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: Edit a
+shiftLeft :: Edit i a
 shiftLeft = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
-shiftRight :: Edit a
+shiftRight :: Edit i a
 shiftRight = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
-moveLeft :: Edit a
+moveLeft :: Edit i a
 moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
 
-moveRight :: Edit a
+moveRight :: Edit i a
 moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
