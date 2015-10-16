@@ -29,7 +29,9 @@ type View = Identified Text Element
 
 effectView :: View -> Dom ()
 effectView new = do
+  view <- makeNode new
   Just body <- askDocument >>= liftIO . getBody
+  appendChild body $ Just view
   return ()
 
 makeNode :: View -> Dom Node
