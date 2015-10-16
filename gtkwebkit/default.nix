@@ -1,2 +1,2 @@
 with import ../common.nix;
-fullBuild "gtkwebkit" nixpkgs.haskell.packages.ghc7102
+fullBuild nixpkgs.haskell.packages.ghc7102 "-f ghcjs=False"

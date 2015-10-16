@@ -8,11 +8,14 @@ author:              Ken Micklas
 maintainer:          kmicklas@gmail.com
 category:            Development
 build-type:          Simple
-extra-source-files:  README.md
 cabal-version:       >=1.10
 
+flag ghcjs
+  Description: Compile with GHCJS
+  Default: False
+
 executable redoak
-  hs-source-dirs:      ../src
+  hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:
@@ -24,3 +27,6 @@ executable redoak
     mtl,
     text,
     transformers
+
+  if flag(ghcjs)
+    build-depends: ghcjs-base

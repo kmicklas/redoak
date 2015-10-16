@@ -1,2 +1,2 @@
 with import ../common.nix;
-fullBuild "ghcjs" nixpkgs.haskell.packages.ghcjs
+fullBuild nixpkgs.haskell.packages.ghcjs "-f ghcjs=True"

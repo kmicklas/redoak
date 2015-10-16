@@ -1,16 +1,15 @@
 rec {
   nixpkgs = import <nixpkgs> {};
 
-  dynamicCabal2nix = dir: nixpkgs.runCommand "dynamic-cabal2nix" {
+  dynamicCabal2nix = dir: flags: nixpkgs.runCommand "dynamic-cabal2nix" {
     nativeBuildInputs = [ nixpkgs.haskellPackages.cabal2nix ];
-  } "cabal2nix ${dir} > $out"; 
+  } "cabal2nix ${flags} ${dir} > $out";
 
-  fullBuild = dir: ghc: ghc.callPackage
-    (dynamicCabal2nix "file://${(nixpkgs.fetchgitLocal ./.)}/${dir}")
-    {};
+  fullBuild = ghc: flags:
+    ghc.callPackage (dynamicCabal2nix (nixpkgs.fetchgitLocal ./.) flags) {};
 
-  shell = dir: ghc: let
-    withSrc = ghc.callPackage (dynamicCabal2nix (toString dir)) {};
+  shell = ghc: flags: let
+    withSrc = ghc.callPackage (dynamicCabal2nix (toString ./.) flags) {};
     removeSrcAddCabal = drv: {
       src = null;
       executableHaskellDepends =
