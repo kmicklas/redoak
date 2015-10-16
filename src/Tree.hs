@@ -41,6 +41,17 @@ stringifyElem = \case
           Atom c -> Just c
           Node _ -> Nothing
 
+change :: Tree a -> Edit a
+change new (t, Path [] (start, end)) = (t', Path [] (start', end'))
+  where t' = S.take (min start end) t >< new >< S.drop (max start end) t
+        (start', end') =
+          if start <= end
+          then (start, start + S.length new)
+          else (end + S.length new, end)
+change new (t, Path (i : is) b) = (t', Path (i : is) b')
+  where t' = S.update i (Node sub) t
+        (sub, Path _ b') = change new (children $ S.index t i, Path is b)
+
 localMove :: (Int -> Range -> Range) -> Edit a
 localMove f (t, Path is b) = (t, Path is $ fix t $ move t is b)
   where move t [] b = f (S.length t) b
