@@ -12,6 +12,7 @@ import GHCJS.DOM.EventM (on, mouseClientXY)
 
 import View
 import Tree
+import Editor
 
 main = runWebGUI $ \ webView -> do
   enableInspector webView
