@@ -1,15 +1,18 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module View 
   ( Identified(..)
   , View(..)
-  , reactView
   ) where
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
-import Data.Text
-import GHCJS.DOM.Document
+import Data.Foldable
+import Data.Text hiding (map)
+import Data.Sequence
+import GHCJS.DOM.Document (getBody)
+import GHCJS.DOM.Node (Node)
 
 import Dom
 import React
@@ -19,20 +22,19 @@ data Identified i v
   deriving Functor
 
 data Element
-  = Node { classes :: [Text], elements :: [View] }
+  = Node { classes :: [Text], elements :: Seq View }
   | Text { classes :: [Text], text :: Text }
 
 type View = Identified Text Element
-
-reactView :: MVar e -> s -> (e -> s -> s) -> (s -> View) -> Dom ()
-reactView events init update render = do
-  currentView <- liftIO $ newMVar $ Node [] []
-  react events init update $ effectView . render
 
 effectView :: View -> Dom ()
 effectView new = do
   Just body <- askDocument >>= liftIO . getBody
   return ()
 
---makeNode :: View -> Dom Node
---makeNode (id := Node cs es) = el "div" 
+makeNode :: View -> Dom Node
+makeNode (id := Text cs t) = el "span" (attrs id cs) [text t]
+makeNode (id := Node cs es) = el "div" (attrs id cs) $ map makeNode $ toList es
+
+attrs :: Text -> [Text] -> [(Text, Text)]
+attrs id classes = [("id", id), ("class", intercalate " " classes)]
