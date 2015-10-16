@@ -4,6 +4,20 @@
 module Tree
   ( Tree
   , Element(..)
+  , Range
+  , Path(..)
+  , Edit
+  , stringify
+  , change
+  , switchBounds
+  , startMin
+  , endMax
+  , selectNoneStart
+  , selectNoneEnd
+  , shiftLeft
+  , shiftRight
+  , moveLeft
+  , moveRight
   ) where
 
 import Data.Foldable
