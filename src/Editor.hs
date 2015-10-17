@@ -1,5 +1,5 @@
 module Editor
-  ( State
+  ( State(..)
   , Event(..)
   , Key(..)
   , initState
@@ -16,6 +16,7 @@ data State
     , currentId :: !Word
     , cursor :: (Tree Word Char, Path)
     }
+  deriving (Eq, Show)
 
 data Mode
   = Normal
@@ -48,8 +49,9 @@ onEvent (KeyDown Space) s | mode s == Normal = s { mode = Insert }
 onEvent (KeyDown _) s = s
 
 onEvent (KeyPress '\n') s = s
+onEvent (KeyPress '\b') s = s
 onEvent (KeyPress c) s | mode s == Insert = s
-  { cursor = change (singleton $ Atom (currentId s) c) $ cursor s
+  { cursor = selectNoneEnd $ change (singleton $ Atom (currentId s) c) $ cursor s
   , currentId = currentId s + 1
   }
 onEvent _ s = s
