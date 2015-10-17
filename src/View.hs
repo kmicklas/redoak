@@ -11,8 +11,8 @@ import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Text hiding (map)
 import Data.Sequence
-import GHCJS.DOM.Document (getBody)
-import GHCJS.DOM.Node (Node, appendChild)
+import GHCJS.DOM.Document (getBody, getElementById)
+import GHCJS.DOM.Node (Node, NodeClass, appendChild, getParentNode, removeChild)
 
 import Dom
 import React
@@ -30,8 +30,16 @@ type View = Identified Text Element
 effectView :: View -> Dom ()
 effectView new = do
   view <- makeNode new
-  Just body <- askDocument >>= liftIO . getBody
+  doc <- askDocument
+  Just body <- liftIO $ getBody doc
+  getElementById doc (ident new) >>= maybe (return ()) removeNode
   appendChild body $ Just view
+  return ()
+
+removeNode :: (NodeClass n) => n -> Dom ()
+removeNode node = do
+  Just parent <- getParentNode node
+  removeChild parent $ Just node
   return ()
 
 makeNode :: View -> Dom Node
