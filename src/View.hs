@@ -3,7 +3,9 @@
 
 module View 
   ( Identified(..)
-  , View(..)
+  , Element(..)
+  , View
+  , effectView
   ) where
 
 import Control.Concurrent.MVar
