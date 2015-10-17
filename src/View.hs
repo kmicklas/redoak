@@ -14,7 +14,7 @@ import Data.Foldable
 import Data.Text hiding (map)
 import Data.Sequence
 import GHCJS.DOM.Document (getBody, getElementById)
-import GHCJS.DOM.Node (Node, NodeClass, appendChild, getParentNode, removeChild)
+import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 
 import Dom
 import React
@@ -34,11 +34,11 @@ effectView new = do
   view <- makeNode new
   doc <- askDocument
   Just body <- liftIO $ getBody doc
-  getElementById doc (ident new) >>= maybe (return ()) removeNode
+  getElementById doc (ident new) >>= (maybe (return ()) $ removeNode . toNode)
   appendChild body $ Just view
   return ()
 
-removeNode :: (NodeClass n) => n -> Dom ()
+removeNode :: Node -> Dom ()
 removeNode node = do
   Just parent <- getParentNode node
   removeChild parent $ Just node
