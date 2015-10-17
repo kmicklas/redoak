@@ -8,7 +8,6 @@ import Control.Monad.IO.Class
 react :: (MonadIO m) =>
   MVar e -> s -> (e -> s -> s) -> (s -> m ()) -> m a
 react events init update effect = do
+  effect init
   event <- liftIO $ takeMVar events
-  let state = update event init
-  effect state
-  react events state update effect
+  react events (update event init) update effect
