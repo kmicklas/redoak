@@ -19,12 +19,3 @@ main = runWebGUI $ \ webView -> do
   enableInspector webView
   Just doc <- webViewGetDomDocument webView
   runEditor doc
-  Just body <- getBody doc
-  setInnerHTML body (Just "<h1>Hello World</h1>")
-  on doc click $ do
-    (x, y) <- mouseClientXY
-    Just newParagraph <- fmap castToHTMLParagraphElement <$> createElement doc (Just "p")
-    setInnerText newParagraph $ Just $ "Click " ++ show (x, y)
-    appendChild body (Just newParagraph)
-    return ()
-  return ()
