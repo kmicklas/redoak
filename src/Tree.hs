@@ -39,6 +39,7 @@ data Path
     { indices :: [Int]
     , bounds :: Range
     }
+  deriving (Eq, Ord, Show)
 
 type Edit i a = (Tree i a, Path) -> (Tree i a, Path)
 
@@ -84,10 +85,10 @@ selectNoneEnd :: Edit i a
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
 shiftLeft :: Edit i a
-shiftLeft = localMove $ \ _ (start, end) -> (start + 1, end + 1)
+shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
 shiftRight :: Edit i a
-shiftRight = localMove $ \ _ (start, end) -> (start - 1, end - 1)
+shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
 moveLeft :: Edit i a
 moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
