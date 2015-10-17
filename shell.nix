@@ -14,4 +14,17 @@ let
 
   in overrideCabal withSrc removeSrc;
 
-in mapAttrs (_: p: p.env) (mapAttrs f pkgs.haskell.packages);
+  # Make for each package set
+  pkgSets = mapAttrs f pkgs.haskell.packages;
+
+  pkgSetsWithCombined = pkgSets // {
+    # Single shell for ghc-7.10.2 and ghcjs
+    combined = overrideCabal pkgSets.ghc7102 (drv: {
+      pname = "${drv.pname}-combined";
+      executableHaskellDepends = drv.executableHaskellDepends
+        ++ pkgSets.ghcjs.executableHaskellDepends
+        ++ [ pkgs.haskellPackages.cabal-install ];
+    });
+  };
+
+in mapAttrs (_: p: p.env) pkgSetsWithCombined
