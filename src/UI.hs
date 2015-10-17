@@ -1,13 +1,20 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module UI
   ( runEditor
   ) where
 
-import GHCJS.DOM.Document (Document, keyDown, keyPress)
-import GHCJS.DOM.EventM (on)
+import Control.Concurrent
 import Control.Concurrent.MVar
+import Control.Monad.IO.Class
+import Data.Text
+import GHCJS.DOM.Document (Document, keyDown, keyPress)
+import GHCJS.DOM.EventM (on, uiKeyCode, uiCharCode)
 
+import Dom
 import Editor
 import React
+import View
 
 key :: Int -> Key
 key 37 = ArrowLeft
@@ -18,13 +25,18 @@ key 32 = Space
 key 13 = Enter
 key c = Other c
 
-runEditor :: Document -> IO a
+viewState :: State -> View
+viewState s = "x" := (Text [] $ pack $ show s)
+
+runEditor :: Document -> IO ()
 runEditor doc = do
-  putStrLn "run"
   events <- newEmptyMVar
   on doc keyDown $ do
-    return ()
+    code <- uiKeyCode
+    liftIO $ putMVar events $ KeyDown $ key code
   on doc keyPress $ do
-    return ()
-  react events initState onEvent render
-  where render = undefined
+    code <- uiCharCode
+    liftIO $ putMVar events $ KeyPress $ toEnum code
+  forkIO $ react events initState onEvent render
+  return ()
+  where render s = run (effectView $ viewState s) doc
