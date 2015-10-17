@@ -1,10 +1,7 @@
 rec {
-  nixpkgs = import <nixpkgs> {};
-  dynamicCabal2nix = dir: let
-    generated =
-      nixpkgs.runCommand "dynamic-cabal2nix" {
-      nativeBuildInputs = [ nixpkgs.haskellPackages.cabal2nix ];
-    } "cabal2nix ${dir} > $out"; 
+  pkgs = import <nixpkgs> {};
 
-  in generated;
+  dynamicCabal2nix = dir: pkgs.runCommand "dynamic-cabal2nix" {
+    nativeBuildInputs = [ pkgs.haskellPackages.cabal2nix ];
+  } "cabal2nix ${dir} > $out";
 }

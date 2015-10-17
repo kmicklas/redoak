@@ -1,9 +1,17 @@
 with import ./common.nix;
 let
-  withSrc = nixpkgs.haskell.packages.ghcjs.callPackage (dynamicCabal2nix (toString ./.)) {};
-  removeSrcAddCabal = drv: {
-    src = null;
-    executableHaskellDepends = drv.executableHaskellDepends ++ [ nixpkgs.haskellPackages.cabal-install ];
-  };
+  inherit (pkgs.haskell.lib) overrideCabal;
+  inherit (pkgs.lib.attrsets) mapAttrs;
 
-in (nixpkgs.haskell.lib.overrideCabal withSrc removeSrcAddCabal).env
+  f = _: haskellPackages: let
+    withSrc = haskellPackages.callPackage
+      (dynamicCabal2nix (toString ./.))
+      {
+        # Hack because cabal2nix includes all conditional deps
+        ghcjs-base = haskellPackages.ghcjs-base or null;
+      };
+    removeSrc = drv: { src = null; };
+
+  in overrideCabal withSrc removeSrc;
+
+in mapAttrs (_: p: p.env) (mapAttrs f pkgs.haskell.packages);

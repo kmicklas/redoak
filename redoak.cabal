@@ -1,14 +1,13 @@
 name:                redoak
 version:             0.1.0.0
 synopsis:            An editor for the future
--- description:         
+-- description:
 license:             AGPL-3
 license-file:        LICENSE
 author:              Ken Micklas
 maintainer:          kmicklas@gmail.com
 category:            Development
 build-type:          Simple
-extra-source-files:  README.md
 cabal-version:       >=1.10
 
 executable redoak
@@ -20,8 +19,11 @@ executable redoak
     bytestring,
     containers,
     free,
-    ghcjs-base,
     ghcjs-dom,
     mtl,
     text,
     transformers
+
+  if impl(ghcjs)
+    build-depends:
+      ghcjs-base
