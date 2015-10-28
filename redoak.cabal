@@ -10,6 +10,10 @@ category:            Development
 build-type:          Simple
 cabal-version:       >=1.10
 
+data-dir:            data
+data-files:
+  style/*.css
+
 executable redoak
   hs-source-dirs:      src
   main-is:             Main.hs
@@ -23,6 +27,8 @@ executable redoak
     mtl,
     text,
     transformers
+  other-modules:
+    Paths_redoak
 
   if impl(ghcjs)
     build-depends:
