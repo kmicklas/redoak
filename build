@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ -n "$NIX_GHCJS" ]; then
+  cabal configure --ghcjs
+  cabal build
+  for jsexe in dist/build/*/*.jsexe; do
+    cp -r "$(dirname "$0")"/data/* $jsexe
+  done
+else
+  cabal configure
+  cabal build
+fi

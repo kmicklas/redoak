@@ -27,9 +27,10 @@ executable redoak
     mtl,
     text,
     transformers
-  other-modules:
-    Paths_redoak
 
   if impl(ghcjs)
     build-depends:
       ghcjs-base
+  else
+    other-modules:
+      Paths_redoak
