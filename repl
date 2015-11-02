@@ -1,0 +1,4 @@
+#!/bin/sh
+
+source "$(dirname "$0")/configure"
+redoak_datadir="$redoak_src_datadir" cabal repl "$@"
