@@ -6,4 +6,4 @@ import Tree
 import UI
 import View
 
-main = setup runEditor
+main = withDocument runEditor

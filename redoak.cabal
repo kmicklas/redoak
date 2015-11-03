@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 data-dir:            data
 data-files:
   style/*.css
-  empty.html
+  native.html
 
 executable redoak
   hs-source-dirs:      src
