@@ -1,5 +1,6 @@
 module Main where
 
+import Data.Maybe
 import GHCJS.DOM (webViewGetDomDocument, runWebGUI)
 
 import Editor
@@ -8,7 +9,6 @@ import Tree
 import UI
 import View
 
-main = runWebGUI $ \ webView -> do
-  Just doc <- webViewGetDomDocument webView
-  setup doc
-  runEditor doc
+main = runWebGUI $ \ view -> do
+  setup view
+  webViewGetDomDocument view >>= (runEditor . fromJust)
