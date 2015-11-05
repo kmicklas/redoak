@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source "$(dirname "$0")/configure"
+. "$(dirname "$0")/configure"
 cabal build "$@"
 if [ -n "$NIX_GHCJS" ]; then
   for jsexe in dist/build/*/*.jsexe; do
