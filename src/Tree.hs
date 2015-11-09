@@ -7,6 +7,7 @@ module Tree
   , Range
   , Path(..)
   , Edit
+  , joinAtoms
   , stringify
   , change
   , switchBounds
@@ -43,11 +44,18 @@ data Path
 
 type Edit i a = (Tree i a, Path) -> (Tree i a, Path)
 
+joinAtoms :: (a -> Maybe b -> b) -> Tree i a -> Tree i b
+joinAtoms join = fromList . foldr cons []
+  where cons (Atom i a) (Atom _ as : rest) = Atom i (join a $ Just as) : rest
+        cons (Atom i a) rest = Atom i (join a Nothing) : rest
+        cons (Node i ts) rest = Node i (joinAtoms join ts) : rest
+
 stringify :: Tree i Char -> Tree i String
-stringify = fromList . foldr join []
-  where join (Atom i c) (Atom _ cs : rest) = Atom i (c : cs) : rest
-        join (Atom i c) rest = Atom i [c] : rest
-        join (Node i ts) rest = Node i (stringify ts) : rest
+stringify = joinAtoms charJoin
+
+charJoin :: Char -> Maybe String -> String
+charJoin c Nothing = [c]
+charJoin c (Just cs) = c : cs
 
 change :: Tree i a -> Edit i a
 change new (t, Path [] (start, end)) = (t', Path [] (start', end'))
