@@ -6,6 +6,7 @@ module Tree
   , Element(..)
   , Range
   , Path(..)
+  , Cursor(..)
   , Edit
   , joinAtoms
   , stringify
@@ -42,7 +43,14 @@ data Path
     }
   deriving (Eq, Ord, Show)
 
-type Edit i a = (Tree i a, Path) -> (Tree i a, Path)
+data Cursor i a
+  = Cursor
+    { tree :: Tree i a
+    , selection :: Path
+    }
+  deriving (Eq, Ord, Show)
+
+type Edit i a = Cursor i a -> Cursor i a
 
 joinAtoms :: (a -> Maybe b -> b) -> Tree i a -> Tree i b
 joinAtoms join = fromList . foldr cons []
@@ -58,18 +66,19 @@ charJoin c Nothing = [c]
 charJoin c (Just cs) = c : cs
 
 change :: Tree i a -> Edit i a
-change new (t, Path [] (start, end)) = (t', Path [] (start', end'))
+change new (Cursor t (Path [] (start, end))) =
+  Cursor t' $ Path [] (start', end')
   where t' = S.take (min start end) t >< new >< S.drop (max start end) t
         (start', end') =
           if start <= end
           then (start, start + S.length new)
           else (end + S.length new, end)
-change new (t, Path (i : is) b) = (t', Path (i : is) b')
+change new (Cursor t (Path (i : is) b)) = Cursor t' $ Path (i : is) b'
   where t' = S.update i (Node (ident $ S.index t i) sub) t
-        (sub, Path _ b') = change new (children $ S.index t i, Path is b)
+        Cursor sub (Path _ b') = change new $ Cursor (children $ S.index t i) $ Path is b
 
 localMove :: (Int -> Range -> Range) -> Edit i a
-localMove f (t, Path is b) = (t, Path is $ fix t $ move t is b)
+localMove f (Cursor t (Path is b)) = Cursor t $ Path is $ fix t $ move t is b
   where move t [] b = f (S.length t) b
         move t (i : is) b = move (children $ S.index t i) is b
         fix t (start, end) =

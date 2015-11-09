@@ -14,7 +14,7 @@ data State
   = State
     { mode :: !Mode
     , currentId :: !Word
-    , cursor :: (Tree Word Char, Path)
+    , cursor :: Cursor Word Char
     }
   deriving (Eq, Show)
 
@@ -38,7 +38,7 @@ data Key
   deriving (Eq, Ord, Show)
 
 initState :: State
-initState = State Normal 0 (empty, Path [] (0, 0))
+initState = State Normal 0 $ Cursor empty $ Path [] (0, 0)
 
 onEvent :: Event -> State -> State
 
