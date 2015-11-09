@@ -26,7 +26,7 @@ key 13 = Enter
 key c = Other c
 
 viewState :: State -> View
-viewState s = "x" := (Text [] $ pack $ show s)
+viewState s = Atom ("content", []) $ pack $ show s
 
 runEditor :: Document -> IO ()
 runEditor doc = do

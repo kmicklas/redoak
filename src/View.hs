@@ -2,8 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module View 
-  ( Identified(..)
-  , Element(..)
+  ( Element(..)
   , View
   , effectView
   ) where
@@ -18,23 +17,17 @@ import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 
 import Dom
 import React
+import Tree
 
-data Identified i v
-  = (:=) { ident :: i, value :: v }
-  deriving Functor
-
-data Element
-  = Node { classes :: [Text], elements :: Seq View }
-  | Text { classes :: [Text], text :: Text }
-
-type View = Identified Text Element
+type View = Element (Text, [Text]) Text
 
 effectView :: View -> Dom ()
 effectView new = do
   view <- makeNode new
   doc <- askDocument
   Just body <- liftIO $ getBody doc
-  getElementById doc (ident new) >>= (maybe (return ()) $ removeNode . toNode)
+  old <- getElementById doc (fst $ ident new)
+  maybe (return ()) (removeNode . toNode) old
   appendChild body $ Just view
   return ()
 
@@ -45,8 +38,8 @@ removeNode node = do
   return ()
 
 makeNode :: View -> Dom Node
-makeNode (id := Text cs t) = el "span" (attrs id cs) [textNode t]
-makeNode (id := Node cs es) = el "div" (attrs id cs) $ map makeNode $ toList es
+makeNode (Atom (id, cs) t) = el "span" (attrs id cs) [textNode t]
+makeNode (Node (id, cs) es) = el "div" (attrs id cs) $ map makeNode $ toList es
 
 attrs :: Text -> [Text] -> [(Text, Text)]
 attrs id classes = [("id", id), ("class", intercalate " " classes)]
