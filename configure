@@ -4,5 +4,5 @@ redoak_src_datadir="$(dirname $(readlink -m "$0"))/data"
 if [ -n "$NIX_GHCJS" ]; then
   cabal configure --ghcjs
 else
-  cabal configure
+  cabal configure --enable-relocatable
 fi
