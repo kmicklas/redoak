@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Tree
   ( Tree
