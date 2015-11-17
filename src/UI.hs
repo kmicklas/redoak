@@ -52,5 +52,5 @@ runEditor = do
   on ?doc keyPress $ do
     code <- uiCharCode
     liftIO $ putMVar events $ KeyPress $ toEnum code
-  forkIO $ react events initState onEvent $ effectView . viewState
+  forkIO $ react events onEvent (effectView . viewState) initState
   return ()

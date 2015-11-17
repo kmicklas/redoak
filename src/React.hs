@@ -6,8 +6,9 @@ import Control.Concurrent.MVar
 import Control.Monad.IO.Class
 
 react :: (MonadIO m) =>
-  MVar e -> s -> (e -> s -> s) -> (s -> m ()) -> m a
-react events init update effect = do
-  effect init
-  event <- liftIO $ takeMVar events
-  react events (update event init) update effect
+  MVar e -> (e -> s -> s) -> (s -> m ()) -> s -> m a
+react events update effect = loop
+  where loop state = do
+          effect state
+          event <- liftIO $ takeMVar events
+          loop $ update event state
