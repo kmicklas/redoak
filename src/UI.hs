@@ -31,10 +31,11 @@ key = \case
   c -> Other c
 
 viewState :: State -> View
-viewState s = Node ("editor", []) $ fromList [contentView, modeView]
+viewState s = Node ("editor", []) $ fromList [contentView, modeView, debugView]
   where contentView = Node ("content", []) treeViews
         treeViews = viewTree $ stringify $ tree $ cursor s
         modeView = Atom ("mode", []) $ pack $ show $ mode s
+        debugView = Atom ("debug", []) $ pack $ show s
 
 viewTree :: (Show i) => Tree i Text -> Seq View
 viewTree = fmap viewElement
