@@ -21,13 +21,14 @@ import Tree
 import View
 
 key :: Int -> Key
-key 37 = ArrowLeft
-key 38 = ArrowUp
-key 39 = ArrowRight
-key 40 = ArrowDown
-key 32 = Space
-key 13 = Enter
-key c = Other c
+key = \case
+  37 -> ArrowLeft
+  38 -> ArrowUp
+  39 -> ArrowRight
+  40 -> ArrowDown
+  32 -> Space
+  13 -> Enter
+  c -> Other c
 
 viewState :: State -> View
 viewState s = Node ("editor", []) $ fromList [contentView, modeView]
