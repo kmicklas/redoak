@@ -6,6 +6,9 @@ module Editor
   , onEvent
   ) where
 
+import Control.Monad
+import Control.Monad.Trans.State.Lazy hiding (State)
+
 import Data.Sequence
 
 import Tree
@@ -39,23 +42,21 @@ data Key
 initState :: State
 initState = State Normal 0 $ Cursor empty $ Path [] (0, 0)
 
+applyEdit :: EditM Word Char -> (State -> State)
+applyEdit f s = s { cursor = c'
+                  , currentId = i'
+                  }
+  where (c', i') = runState (f $ cursor s) $ currentId s
+
+
 onEvent :: Event -> State -> State
 
 onEvent (KeyDown ArrowLeft)  s = s { cursor = shiftLeft  $ cursor s }
 onEvent (KeyDown ArrowRight) s = s { cursor = shiftRight $ cursor s }
 
-onEvent (KeyDown Tab) s | mode s == Insert = s
-  { cursor = push (currentId s) $ cursor s
-  , currentId = currentId s + 1
-  }
-onEvent (KeyPress '\r') s | mode s == Insert = s
-  { cursor = pop (currentId s) $ cursor s
-  , currentId = currentId s + 1
-  }
-onEvent (KeyPress ' ') s | mode s == Insert = s
-  { cursor = push (currentId s + 1) $ pop (currentId s) $ cursor s
-  , currentId = currentId s + 2
-  }
+onEvent (KeyDown Tab) s | mode s == Insert = applyEdit push s
+onEvent (KeyPress '\r') s | mode s == Insert = applyEdit pop s
+onEvent (KeyPress ' ') s | mode s == Insert = applyEdit (pop <=< push) s
 
 onEvent (KeyPress '\ESC') s = s
   { mode = case mode s of Normal -> Insert

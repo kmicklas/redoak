@@ -6,7 +6,11 @@ module Tree
   , Range
   , Path(..)
   , Cursor(..)
+
   , Edit
+  , EditT
+  , EditM
+
   , compress
   , stringify
   , change
@@ -25,7 +29,10 @@ module Tree
   , moveRight
   ) where
 
+import Control.Monad.Trans.State.Lazy
+
 import Data.Foldable
+import Data.Functor.Identity
 import Data.Traversable
 import Data.List     as L
 import Data.Maybe    as M
@@ -57,6 +64,8 @@ data Cursor i a
   deriving (Eq, Ord, Show)
 
 type Edit i a = Cursor i a -> Cursor i a
+type EditT m i a = Cursor i a -> StateT i m (Cursor i a)
+type EditM i a = EditT Identity i a
 
 compress :: Monoid a => Tree i a -> Tree i a
 compress seq = fromMaybe (recur <$> seq) $ do
@@ -100,19 +109,30 @@ localMove f (Cursor t (Path is b)) = Cursor t $ Path is $ fix t $ move t is b
           then b
           else (start, end)
 
+
+freshID :: Num i => State i i
+freshID = do
+  i <- get
+  put $ i + 1
+  return i
+
 -- | Go back to editing parent, right of current position
 -- | new parent if at root
-pop :: i -> Edit i a
-pop i (Cursor t (Path stack (_, _))) = case stack of
-  []    -> Cursor (S.singleton $ Node i t) $ Path [] (1, 1)
-  stack -> Cursor t                        $ Path (L.reverse r) (f, f)
-    where (f:r) = L.reverse stack
+pop :: Num i => EditM i a
+pop (Cursor t (Path stack (_, _))) = do
+  i <- freshID
+  return $ case stack of
+    []    -> Cursor (S.singleton $ Node i t) $ Path [] (1, 1)
+    stack -> Cursor t                        $ Path (L.reverse r) (f, f)
+      where (f:r) = L.reverse stack
 
 -- | Create new node, edit at begining of it
 -- FIX bounds, I don't get why we don't impose <= invariant
-push :: i -> Edit i a
-push i c = Cursor t $ Path (stack ++ [x]) (0, 0)
-  where (Cursor t (Path stack (x, _))) = change (S.singleton $ Node i S.empty) c
+push :: Num i => EditM i a
+push c = do
+  i <- freshID
+  let (Cursor t (Path stack (x, _))) = change (S.singleton $ Node i S.empty) c
+  return $ Cursor t $ Path (stack ++ [x]) (0, 0)
 
 
 switchBounds :: Edit i a
