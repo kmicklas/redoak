@@ -33,16 +33,19 @@ key = \case
 viewState :: State -> View
 viewState s = Node ("editor", []) $ fromList [contentView, modeView, debugView]
   where contentView = Node ("content", []) treeViews
-        treeViews = viewTree $ stringify $ tree $ cursor s
+        treeViews = viewTree ["content"] $ stringify $ tree $ cursor s
         modeView = Atom ("mode", []) $ pack $ show $ mode s
         debugView = Atom ("debug", []) $ pack $ show s
 
-viewTree :: (Show i) => Tree i Text -> Seq View
-viewTree = fmap viewElement
+viewTree :: forall i. (Show i) => [Text] -> Tree i Text -> Seq View
+viewTree classes = outer
+  where
+    outer = fmap viewElement
 
-viewElement :: (Show i) => Element i Text -> View
-viewElement (Atom i a) = Atom (pack $ show i, []) a
-viewElement (Node i ts) = Node (pack $ show i, []) $ viewTree ts
+    viewElement :: Element i Text -> View
+    viewElement = \case
+      (Atom i a)  -> Atom (pack $ show i, classes) a
+      (Node i ts) -> Node (pack $ show i, classes) $ outer ts
 
 runEditor :: WithDoc ()
 runEditor = do
