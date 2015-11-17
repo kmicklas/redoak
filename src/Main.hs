@@ -1,3 +1,5 @@
+{-# LANGUAGE ImplicitParams #-}
+
 module Main where
 
 import Editor
@@ -6,4 +8,4 @@ import Tree
 import UI
 import View
 
-main = withDocument runEditor
+main = withDocument $ \ doc -> let ?doc = doc in runEditor

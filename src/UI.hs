@@ -1,3 +1,4 @@
+{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module UI
@@ -11,7 +12,6 @@ import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
 import GHCJS.DOM.EventM (on, uiKeyCode, uiCharCode)
 
-import Dom
 import Editor
 import React
 import View
@@ -28,15 +28,14 @@ key c = Other c
 viewState :: State -> View
 viewState s = Atom ("content", []) $ pack $ show s
 
-runEditor :: Document -> IO ()
-runEditor doc = do
+runEditor :: (?doc :: Document) => IO ()
+runEditor = do
   events <- newEmptyMVar
-  on doc keyDown $ do
+  on ?doc keyDown $ do
     code <- uiKeyCode
     liftIO $ putMVar events $ KeyDown $ key code
-  on doc keyPress $ do
+  on ?doc keyPress $ do
     code <- uiCharCode
     liftIO $ putMVar events $ KeyPress $ toEnum code
-  forkIO $ react events initState onEvent render
+  forkIO $ react events initState onEvent $ effectView . viewState
   return ()
-  where render s = run (effectView $ viewState s) doc
