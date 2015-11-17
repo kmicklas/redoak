@@ -26,8 +26,7 @@ key = \case
   38 -> ArrowUp
   39 -> ArrowRight
   40 -> ArrowDown
-  32 -> Space
-  13 -> Enter
+  9  -> Tab
   c -> Other c
 
 viewState :: State -> View
