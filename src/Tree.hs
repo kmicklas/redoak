@@ -8,7 +8,7 @@ module Tree
   , Path(..)
   , Cursor(..)
   , Edit
-  , joinAtoms
+  , compress
   , stringify
   , change
   , switchBounds
@@ -23,6 +23,8 @@ module Tree
   ) where
 
 import Data.Foldable
+import Data.Traversable
+import Data.Maybe
 import Data.Sequence as S
 import Data.Text     as T hiding (foldr)
 import Data.Word
@@ -52,14 +54,16 @@ data Cursor i a
 
 type Edit i a = Cursor i a -> Cursor i a
 
-joinAtoms :: (a -> Maybe b -> b) -> Tree i a -> Tree i b
-joinAtoms join = fromList . foldr cons []
-  where cons (Atom i a) (Atom _ as : rest) = Atom i (join a $ Just as) : rest
-        cons (Atom i a) rest = Atom i (join a Nothing) : rest
-        cons (Node i ts) rest = Node i (joinAtoms join ts) : rest
+compress :: Monoid a => Tree i a -> Tree i a
+compress seq = fromMaybe seq $ do
+  Atom i _ :< _ <- return $ viewl seq -- ensure at least 1 atom; fail _ = Nothing
+  allAtoms <- for seq $ \case
+    Atom _ a -> Just a
+    _        -> Nothing
+  return $ S.singleton $ Atom i $ fold allAtoms
 
-stringify :: Tree i Char -> Tree i String
-stringify = joinAtoms charJoin
+stringify :: Tree i Char -> Tree i Text
+stringify = compress . (fmap . fmap) T.singleton
 
 charJoin :: Char -> Maybe String -> String
 charJoin c Nothing = [c]

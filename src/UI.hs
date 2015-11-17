@@ -32,7 +32,7 @@ key c = Other c
 viewState :: State -> View
 viewState s = Node ("editor", []) $ fromList [contentView, modeView]
   where contentView = Node ("content", []) treeViews
-        treeViews = viewTree $ fmap (fmap pack) $ stringify $ tree $ cursor s
+        treeViews = viewTree $ stringify $ tree $ cursor s
         modeView = Atom ("mode", []) $ pack $ show $ mode s
 
 viewTree :: (Show i) => Tree i Text -> Seq View
