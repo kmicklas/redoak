@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module View 
   ( Element(..)
@@ -21,7 +22,7 @@ import Tree
 
 type View = Element (Text, [Text]) Text
 
-effectView :: (?doc :: Document) => View -> IO ()
+effectView :: View -> WithDoc ()
 effectView new = do
   view <- makeNode new
   Just body <- getBody ?doc
@@ -36,7 +37,7 @@ removeNode node = do
   removeChild parent $ Just node
   return ()
 
-makeNode :: (?doc :: Document) => View -> IO Node
+makeNode :: View -> WithDoc Node
 makeNode (Atom (id, cs) t) = el "span" (attrs id cs) =<< mapM textNode [t]
 makeNode (Node (id, cs) es) = el "div" (attrs id cs) =<< mapM makeNode (toList es)
 

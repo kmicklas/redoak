@@ -1,5 +1,6 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module UI
   ( runEditor
@@ -12,6 +13,7 @@ import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
 import GHCJS.DOM.EventM (on, uiKeyCode, uiCharCode)
 
+import Dom
 import Editor
 import React
 import View
@@ -28,7 +30,7 @@ key c = Other c
 viewState :: State -> View
 viewState s = Atom ("content", []) $ pack $ show s
 
-runEditor :: (?doc :: Document) => IO ()
+runEditor :: WithDoc ()
 runEditor = do
   events <- newEmptyMVar
   on ?doc keyDown $ do
