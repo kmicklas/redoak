@@ -8,11 +8,12 @@ module UI
 
 import Control.Concurrent
 import Control.Concurrent.MVar
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Sequence
 import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
-import GHCJS.DOM.EventM (on, uiKeyCode, uiCharCode)
+import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharCode)
 
 import Dom
 import Editor
@@ -27,7 +28,15 @@ key = \case
   39 -> ArrowRight
   40 -> ArrowDown
   9  -> Tab
+  13 -> Enter
+  27 -> Escape
+  8  -> Backspace
+  46 -> Delete
   c -> Other c
+
+isSpecial :: Key -> Bool
+isSpecial (Other _) = False
+isSpecial _         = True
 
 viewState :: State -> View
 viewState s = Node ("editor", []) $ fromList [contentView, modeView, debugView]
@@ -50,8 +59,11 @@ runEditor :: WithDoc ()
 runEditor = do
   events <- newEmptyMVar
   on ?doc keyDown $ do
-    code <- uiKeyCode
-    liftIO $ putMVar events $ KeyDown $ key code
+    code <- fmap key uiKeyCode
+    when (isSpecial code) $ do
+      stopPropagation
+      preventDefault
+    liftIO $ putMVar events $ KeyDown code
   on ?doc keyPress $ do
     code <- uiCharCode
     liftIO $ putMVar events $ KeyPress $ toEnum code

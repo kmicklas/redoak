@@ -36,6 +36,10 @@ data Key
   | ArrowUp
   | ArrowDown
   | Tab
+  | Enter
+  | Escape
+  | Backspace
+  | Delete
   | Other Int
   deriving (Eq, Ord, Show)
 
