@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Tree
   ( Tree
@@ -33,6 +34,7 @@ import Control.Monad.Trans.State.Lazy
 
 import Data.Foldable
 import Data.Functor.Identity
+import Data.Monoid
 import Data.Traversable
 import Data.List     as L
 import Data.Maybe    as M
@@ -67,17 +69,19 @@ type Edit i a = Cursor i a -> Cursor i a
 type EditT m i a = Cursor i a -> StateT i m (Cursor i a)
 type EditM i a = EditT Identity i a
 
-compress :: Monoid a => Tree i a -> Tree i a
-compress seq = fromMaybe (recur <$> seq) $ do
-  Atom i _ :< _ <- return $ viewl seq -- ensure at least 1 atom; fail _ = Nothing
-  allAtoms <- for seq $ \case
-    Atom _ a -> Just a
-    _        -> Nothing
-  return $ S.singleton $ Atom i $ fold allAtoms
+newtype JoinTree i a = Join { getJoined :: (Tree i a) }
 
-  where recur = \case
-          a@(Atom _ _) -> a
-          (Node i seq) -> Node i $ compress seq
+instance Monoid a => Monoid (JoinTree i a) where
+  mempty = Join S.empty
+  mappend (Join (viewr -> l :> Atom i a)) (Join (viewl -> Atom _ b :< r)) =
+    Join $ l >< (S.singleton $ Atom i (a <> b)) >< r
+  mappend (Join l) (Join r) = Join $ l >< r
+
+compress :: Monoid a => Tree i a -> Tree i a
+compress = getJoined . foldMap (Join . S.singleton . compressInner)
+  where compressInner = \case
+          Atom i a -> Atom i a
+          Node i t -> Node i $ compress t
 
 stringify :: Tree i Char -> Tree i Text
 stringify = compress . (fmap . fmap) T.singleton
