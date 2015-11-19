@@ -123,20 +123,17 @@ freshID = do
 -- | Go back to editing parent, right of current position
 -- | new parent if at root
 pop :: Num i => EditM i a
-pop (Cursor t (Path stack (_, _))) = do
-  i <- freshID
-  return $ case stack of
-    []    -> Cursor (S.singleton $ Node i t) $ Path [] (1, 1)
-    stack -> Cursor t                        $ Path (L.reverse r) (f, f)
-      where (f:r) = L.reverse stack
+pop = \case
+  c@(Cursor t (Path [] bounds)) -> return c
+  Cursor t (Path is (_, _)) -> return $
+    Cursor t $ Path (L.init is) (L.last is, L.last is)
 
 -- | Create new node, edit at begining of it
--- FIX bounds, I don't get why we don't impose <= invariant
 push :: Num i => EditM i a
 push c = do
   i <- freshID
-  let (Cursor t (Path stack (x, _))) = change (S.singleton $ Node i S.empty) c
-  return $ Cursor t $ Path (stack ++ [x]) (0, 0)
+  let (Cursor t (Path stack (start, end))) = change (S.singleton $ Node i S.empty) c
+  return $ Cursor t $ Path (stack ++ [min start end]) (0, 0)
 
 
 switchBounds :: Edit i a
