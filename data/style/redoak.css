@@ -3,6 +3,7 @@ body {
 }
 
 .content {
-  border:1px solid red;
+  border: 1px solid red;
+  margin: 5px;
   white-space: pre-wrap;
 }
