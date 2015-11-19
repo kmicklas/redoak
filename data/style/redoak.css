@@ -4,6 +4,11 @@
   white-space: pre-wrap;
 }
 
+div.content {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
 #mode, #debug {
   display: block;
 }
