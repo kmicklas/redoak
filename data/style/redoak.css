@@ -3,3 +3,7 @@
   margin: 5px;
   white-space: pre-wrap;
 }
+
+#mode, #debug {
+  display: block;
+}
