@@ -1,12 +1,12 @@
 .content {
-  border: 1px solid red;
-  margin: 5px;
   white-space: pre-wrap;
+  margin: 5px;
 }
 
 div.content {
   padding-top: 5px;
   padding-bottom: 5px;
+  border: 1px solid red;
 }
 
 #mode, #debug {
