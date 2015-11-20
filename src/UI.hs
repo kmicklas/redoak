@@ -19,7 +19,6 @@ import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharC
 import Dom
 import Editor
 import Event
-import React
 import Tree
 import View
 
@@ -54,3 +53,10 @@ runEditor = do
     liftIO . putMVar events . KeyPress . toEnum =<< uiCharCode
   forkIO $ react events onEvent (effectView . viewState) initState
   return ()
+
+react :: MVar e -> (e -> s -> s) -> (s -> IO ()) -> s -> IO a
+react events update effect = loop
+  where loop state = do
+          effect state
+          event <- takeMVar events
+          loop $ update event state

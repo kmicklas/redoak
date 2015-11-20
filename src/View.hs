@@ -17,7 +17,6 @@ import GHCJS.DOM.Document (Document, getBody, getElementById)
 import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 
 import Dom
-import React
 import Tree
 
 type View = Element (Text, [Text]) Text
