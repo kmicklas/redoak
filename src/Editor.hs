@@ -1,7 +1,5 @@
 module Editor
   ( State(..)
-  , Event(..)
-  , Key(..)
   , initState
   , onEvent
   ) where
@@ -11,6 +9,7 @@ import Control.Monad.Trans.State.Lazy hiding (State)
 
 import Data.Sequence
 
+import Event
 import Tree
 
 data State
@@ -27,27 +26,6 @@ data Mode
   | Insert
   deriving (Eq, Ord, Show)
 
-data Event
-  = KeyDown Key
-  | KeyPress Char
-  deriving (Eq, Ord, Show)
-
-data Key
-  = ArrowLeft
-  | ArrowRight
-  | ArrowUp
-  | ArrowDown
-  | Tab
-  | Enter
-  | Escape
-  | Backspace
-  | Delete
-  | Other Int
-  deriving (Eq, Ord, Show)
-
-ignoredChars :: [Char]
-ignoredChars = "\ESC\r\n\b\t"
-
 initState :: State
 initState = State Normal 0 (Cursor empty $ Path [] (0, 0)) []
 
@@ -61,8 +39,6 @@ onEvent :: Event -> State -> State
 onEvent e s = onEvent' e $ s { events = e : events s }
 
 onEvent' :: Event -> State -> State
-
-onEvent' (KeyPress c) s | c `elem` ignoredChars = s
 
 onEvent' (KeyDown ArrowLeft)  s = s { cursor = shiftLeft  $ cursor s }
 onEvent' (KeyDown ArrowRight) s = s { cursor = shiftRight $ cursor s }

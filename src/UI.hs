@@ -6,6 +6,7 @@ module UI
   ( runEditor
   ) where
 
+import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
@@ -17,26 +18,10 @@ import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharC
 
 import Dom
 import Editor
+import Event
 import React
 import Tree
 import View
-
-key :: Int -> Key
-key = \case
-  37 -> ArrowLeft
-  38 -> ArrowUp
-  39 -> ArrowRight
-  40 -> ArrowDown
-  9  -> Tab
-  13 -> Enter
-  27 -> Escape
-  8  -> Backspace
-  46 -> Delete
-  c -> Other c
-
-isSpecial :: Key -> Bool
-isSpecial (Other _) = False
-isSpecial _         = True
 
 viewState :: State -> View
 viewState s = Node ("editor", []) $ fromList [contentView, modeView, debugView]
@@ -59,13 +44,13 @@ runEditor :: WithDoc ()
 runEditor = do
   events <- newEmptyMVar
   on ?doc keyDown $ do
-    code <- fmap key uiKeyCode
-    when (isSpecial code) $ do
-      stopPropagation
-      preventDefault
-    liftIO $ putMVar events $ KeyDown code
+    getKey <$> uiKeyCode >>= \case
+      Nothing -> return ()
+      Just k  -> do
+        stopPropagation
+        preventDefault
+        liftIO $ putMVar events $ KeyDown k
   on ?doc keyPress $ do
-    code <- uiCharCode
-    liftIO $ putMVar events $ KeyPress $ toEnum code
+    liftIO . putMVar events . KeyPress . toEnum =<< uiCharCode
   forkIO $ react events onEvent (effectView . viewState) initState
   return ()
