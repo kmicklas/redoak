@@ -105,8 +105,8 @@ change new = \case
           Cursor sub (Path _ b') = change new $ Cursor (children $ S.index t i) $ Path is b
 
 localMove :: (Int -> Range -> Range) -> Edit i a
-localMove f (Cursor t (Path is b)) = Cursor t $ Path is $ fix t $ move t is b
-  where move t [] b = f (S.length t) b
+localMove f (Cursor t (Path is b)) = Cursor t $ Path is $ move t is b
+  where move t [] b = fix t $ f (S.length t) b
         move t (i : is) b = move (children $ S.index t i) is b
         fix t (start, end) =
           if min start end < 0 || max start end > S.length t
