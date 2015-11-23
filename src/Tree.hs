@@ -126,7 +126,7 @@ pop :: Num i => EditM i a
 pop = \case
   c@(Cursor t (Path [] bounds)) -> return c
   Cursor t (Path is (_, _)) -> return $
-    Cursor t $ Path (L.init is) (L.last is, L.last is)
+    Cursor t $ Path (L.init is) (L.last is + 1, L.last is + 1)
 
 -- | Create new node, edit at begining of it
 push :: Num i => EditM i a

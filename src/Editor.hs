@@ -45,7 +45,7 @@ onEvent' (KeyDown ArrowRight) s = s { cursor = shiftRight $ cursor s }
 
 onEvent' (KeyDown Tab) s | mode s == Insert = applyEdit push s
 onEvent' (KeyDown Enter) s | mode s == Insert = applyEdit pop s
-onEvent' (KeyPress ' ') s | mode s == Insert = applyEdit (pop <=< push) s
+onEvent' (KeyPress ' ') s | mode s == Insert = applyEdit (pop >=> push) s
 
 onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
