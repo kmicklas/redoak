@@ -29,8 +29,8 @@ data Mode
 initState :: State
 initState = State Normal 0 (Cursor empty $ Path [] (0, 0)) []
 
-applyEdit :: EditM Word Char -> (State -> State)
-applyEdit f s = s { cursor = c'
+applyEdit :: State -> EditM Word Char -> State
+applyEdit s f = s { cursor = c'
                   , currentId = i'
                   }
   where (c', i') = runState (f $ cursor s) $ currentId s
@@ -40,20 +40,20 @@ onEvent e s = onEvent' e $ s { events = e : events s }
 
 onEvent' :: Event -> State -> State
 
-onEvent' (KeyDown ArrowLeft)  s = s { cursor = shiftLeft  $ cursor s }
-onEvent' (KeyDown ArrowRight) s = s { cursor = shiftRight $ cursor s }
+onEvent' (KeyDown ArrowLeft)  s = applyEdit s shiftLeft
+onEvent' (KeyDown ArrowRight) s = applyEdit s shiftRight
 
-onEvent' (KeyDown Tab) s | mode s == Insert = applyEdit push s
-onEvent' (KeyDown Enter) s | mode s == Insert = applyEdit pop s
-onEvent' (KeyPress ' ') s | mode s == Insert = applyEdit (pop >=> push) s
+onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
+onEvent' (KeyDown Enter) s | mode s == Insert = applyEdit s pop
+onEvent' (KeyPress ' ')  s | mode s == Insert = applyEdit s $ pop >=> push
 
 onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
                           Insert -> Normal
   }
-onEvent' (KeyPress c) s | mode s == Insert = s
-  { cursor = selectNoneEnd $ change (singleton $ Atom (currentId s) c) $ cursor s
-  , currentId = currentId s + 1
-  }
+onEvent' (KeyPress c) s | mode s == Insert = applyEdit s $ ins >=> selectNoneEnd
+  where ins cur = do
+          id <- freshId
+          change (singleton $ Atom id c) cur
 
 onEvent' _ s = s

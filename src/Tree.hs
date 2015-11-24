@@ -11,6 +11,7 @@ module Tree
   , Edit
   , EditT
   , EditM
+  , freshId
 
   , compress
   , stringify
@@ -69,6 +70,12 @@ type Edit i a = Cursor i a -> Cursor i a
 type EditT m i a = Cursor i a -> StateT i m (Cursor i a)
 type EditM i a = EditT Identity i a
 
+freshId :: Num i => State i i
+freshId = do
+  i <- get
+  put $ i + 1
+  return i
+
 newtype JoinTree i a = Join { getJoined :: (Tree i a) }
 
 instance Monoid a => Monoid (JoinTree i a) where
@@ -90,35 +97,31 @@ charJoin :: Char -> Maybe String -> String
 charJoin c Nothing = [c]
 charJoin c (Just cs) = c : cs
 
-change :: Tree i a -> Edit i a
+change :: Tree i a -> EditM i a
 change new = \case
 
-  (Cursor t (Path [] (start, end))) -> Cursor t' $ Path [] (start', end')
+  Cursor t (Path [] (start, end)) ->
+    return $ Cursor t' $ Path [] (start', end')
     where t' = S.take (min start end) t >< new >< S.drop (max start end) t
           (start', end') =
             if start <= end
             then (start, start + S.length new)
             else (end + S.length new, end)
 
-  (Cursor t (Path (i : is) b)) -> Cursor t' $ Path (i : is) b'
-    where t' = S.update i (Node (ident $ S.index t i) sub) t
-          Cursor sub (Path _ b') = change new $ Cursor (children $ S.index t i) $ Path is b
+  Cursor t (Path (i : is) b) -> do
+    Cursor sub (Path _ b') <- change new $
+      Cursor (children $ S.index t i) $ Path is b
+    let t' = S.update i (Node (ident $ S.index t i) sub) t
+    return $ Cursor t' $ Path (i : is) b'
 
-localMove :: (Int -> Range -> Range) -> Edit i a
-localMove f (Cursor t (Path is b)) = Cursor t $ Path is $ move t is b
+localMove :: (Int -> Range -> Range) -> EditM i a
+localMove f (Cursor t (Path is b)) = return $ Cursor t $ Path is $ move t is b
   where move t [] b = fix t $ f (S.length t) b
         move t (i : is) b = move (children $ S.index t i) is b
         fix t (start, end) =
           if min start end < 0 || max start end > S.length t
           then b
           else (start, end)
-
-
-freshID :: Num i => State i i
-freshID = do
-  i <- get
-  put $ i + 1
-  return i
 
 -- | Go back to editing parent, right of current position
 -- | new parent if at root
@@ -131,34 +134,34 @@ pop = \case
 -- | Create new node, edit at begining of it
 push :: Num i => EditM i a
 push c = do
-  i <- freshID
-  let (Cursor t (Path stack (start, end))) = change (S.singleton $ Node i S.empty) c
+  i <- freshId
+  Cursor t (Path stack (start, end)) <- change (S.singleton $ Node i S.empty) c
   return $ Cursor t $ Path (stack ++ [min start end]) (0, 0)
 
 
-switchBounds :: Edit i a
+switchBounds :: EditM i a
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
 
-startMin :: Edit i a
+startMin :: EditM i a
 startMin = localMove $ \ _ (_, end) -> (0, end)
 
-endMax :: Edit i a
+endMax :: EditM i a
 endMax = localMove $ \ size (start, _) -> (start, size)
 
-selectNoneStart :: Edit i a
+selectNoneStart :: EditM i a
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: Edit i a
+selectNoneEnd :: EditM i a
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: Edit i a
+shiftLeft :: EditM i a
 shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
-shiftRight :: Edit i a
+shiftRight :: EditM i a
 shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
-moveLeft :: Edit i a
+moveLeft :: EditM i a
 moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
 
-moveRight :: Edit i a
+moveRight :: EditM i a
 moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
