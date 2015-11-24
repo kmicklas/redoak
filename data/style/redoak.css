@@ -9,6 +9,22 @@ div.content {
   border: 1px solid red;
 }
 
-#mode, #debug {
+#status {
   display: block;
+  position: fixed;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  background: grey;
+  color: white;
+}
+
+#mode {
+  position: fixed;
+  right: 0px;
+}
+
+#debug {
+  position: fixed;
+  left: 0px;
 }

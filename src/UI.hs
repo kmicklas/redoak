@@ -11,6 +11,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.List
 import Data.Sequence
 import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
@@ -23,11 +24,15 @@ import Tree
 import View
 
 viewState :: State -> View
-viewState s = Node ("editor", []) $ fromList [contentView, modeView, debugView]
+viewState s = Node ("editor", []) $ fromList [contentView, statusView]
   where contentView = Node ("content", []) treeViews
         treeViews = viewTree ["content"] $ stringify $ tree $ cursor s
+        statusView = Node ("status", []) $ fromList [pathView, modeView]
+        pathView = Atom ("path", []) $ pack $ pathString $ selection $ cursor s
         modeView = Atom ("mode", []) $ pack $ show $ mode s
-        debugView = Atom ("debug", []) $ pack $ show s
+        pathString (Path is (start, end)) =
+          Data.List.intercalate ", " $ (fmap show is) ++
+          [show start ++ if start == end then "" else "-" ++ show end]
 
 viewTree :: forall i. (Show i) => [Text] -> Tree i Text -> Seq View
 viewTree classes = outer
@@ -36,8 +41,8 @@ viewTree classes = outer
 
     viewElement :: Element i Text -> View
     viewElement = \case
-      (Atom i a)  -> Atom (pack $ show i, classes) a
-      (Node i ts) -> Node (pack $ show i, classes) $ outer ts
+      Atom i a  -> Atom (pack $ show i, classes) a
+      Node i ts -> Node (pack $ show i, classes) $ outer ts
 
 runEditor :: WithDoc ()
 runEditor = do
