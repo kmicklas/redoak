@@ -4,7 +4,6 @@
 }
 
 div.content {
-  float: left;
   padding: 1px;
   border: 0.3ex solid red;
 }
