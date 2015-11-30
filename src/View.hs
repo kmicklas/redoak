@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module View 
-  ( Element(..)
+  ( ViewInfo(..)
   , View
   , effectView
   ) where
@@ -17,15 +17,25 @@ import GHCJS.DOM.Document (Document, getBody, getElementById)
 import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 
 import Dom
+import Rectangle
 import Tree
 
-type View = Element (Text, [Text]) Text
+data ViewInfo
+  = ViewInfo
+    { ident :: Text
+    , classes :: [Text]
+    , dim :: Dimensions
+    , pos :: Position
+    }
+  deriving (Eq, Ord, Show)
+
+type View = Element ViewInfo Text
 
 effectView :: View -> WithDoc ()
 effectView new = do
   view <- makeNode new
   Just body <- getBody ?doc
-  old <- getElementById ?doc (fst $ ident new)
+  old <- getElementById ?doc (ident $ ann new)
   maybe (return ()) (removeNode . toNode) old
   appendChild body $ Just view
   return ()
@@ -37,8 +47,10 @@ removeNode node = do
   return ()
 
 makeNode :: View -> WithDoc Node
-makeNode (Atom (id, cs) t) = el "span" (attrs id cs) =<< mapM textNode [t]
-makeNode (Node (id, cs) es) = el "div" (attrs id cs) =<< mapM makeNode (toList es)
+makeNode (Atom (ViewInfo id cs _ _) t) =
+  el "span" (attrs id cs) =<< mapM textNode [t]
+makeNode (Node (ViewInfo id cs _ _) es) =
+  el "div" (attrs id cs) =<< mapM makeNode (toList es)
 
 attrs :: Text -> [Text] -> [(Text, Text)]
 attrs id classes = [("id", id), ("class", intercalate " " classes)]

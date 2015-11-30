@@ -1,5 +1,6 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 
 module UI
@@ -20,19 +21,28 @@ import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharC
 import Dom
 import Editor
 import Event
+import Rectangle
 import Tree
 import View
 
 viewState :: State -> View
-viewState s = Node ("editor", []) $ fromList [contentView, statusView]
-  where contentView = Node ("content", []) treeViews
+viewState s = node "editor" [] [contentView, statusView]
+  where contentView = node "content" [] treeViews
         treeViews = viewTree ["content"] $ stringify $ tree $ cursor s
-        statusView = Node ("status", []) $ fromList [pathView, modeView]
-        pathView = Atom ("path", []) $ pack $ pathString $ selection $ cursor s
-        modeView = Atom ("mode", []) $ pack $ show $ mode s
+        statusView = node "status" [] [pathView, modeView]
+        pathView = atom "path" [] $ pack $ pathString $ selection $ cursor s
+        modeView = atom "mode" [] $ pack $ show $ mode s
         pathString (Path is (start, end)) =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]
+
+atom :: Text -> [Text] -> Text -> View
+atom id classes text =
+  Atom (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0)) text
+
+node :: Text -> [Text] -> Seq View -> View
+node id classes children =
+  Node (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0)) children
 
 viewTree :: forall i. (Show i) => [Text] -> Tree i Text -> Seq View
 viewTree classes = outer
@@ -41,8 +51,8 @@ viewTree classes = outer
 
     viewElement :: Element i Text -> View
     viewElement = \case
-      Atom i a  -> Atom (pack $ show i, classes) a
-      Node i ts -> Node (pack $ show i, classes) $ outer ts
+      Atom i a  -> atom (pack $ show i) classes a
+      Node i ts -> node (pack $ show i) classes $ outer ts
 
 runEditor :: WithDoc ()
 runEditor = do
