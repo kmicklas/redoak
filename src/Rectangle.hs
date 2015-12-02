@@ -7,6 +7,7 @@ module Rectangle
   , Y(..)
   , Dimensions
   , Position
+  , origin
   ) where
 
 newtype Width = Width Int
@@ -23,3 +24,5 @@ newtype Y = Y Int
 
 type Dimensions = (Width, Height)
 type Position   = (X, Y)
+
+origin = (X 0, Y 0)
