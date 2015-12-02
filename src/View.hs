@@ -29,7 +29,7 @@ data ViewInfo
     }
   deriving (Eq, Ord, Show)
 
-type View = Element ViewInfo Text
+type View = Tree Text ViewInfo
 
 effectView :: View -> WithDoc ()
 effectView new = do
@@ -47,9 +47,9 @@ removeNode node = do
   return ()
 
 makeNode :: View -> WithDoc Node
-makeNode (Atom (ViewInfo id cs _ _) t) =
+makeNode (ViewInfo id cs _ _ := Atom t) =
   el "span" (attrs id cs) =<< mapM textNode [t]
-makeNode (Node (ViewInfo id cs _ _) es) =
+makeNode (ViewInfo id cs _ _ := Node es) =
   el "div" (attrs id cs) =<< mapM makeNode (toList es)
 
 attrs :: Text -> [Text] -> [(Text, Text)]

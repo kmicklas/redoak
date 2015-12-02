@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLists #-}
+
 module Editor
   ( State(..)
   , initState
@@ -8,6 +10,7 @@ import Control.Monad
 import Control.Monad.Trans.State.Lazy hiding (State)
 
 import Data.Sequence
+import Data.Text
 
 import Event
 import Tree
@@ -16,10 +19,10 @@ data State
   = State
     { mode :: !Mode
     , currentId :: !Word
-    , cursor :: Cursor Word Char
+    , cursor :: Cursor Text Word
     , events :: [Event]
     }
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 data Mode
   = Normal
@@ -27,9 +30,9 @@ data Mode
   deriving (Eq, Ord, Show)
 
 initState :: State
-initState = State Normal 0 (Cursor empty $ Path [] (0, 0)) []
+initState = State Normal 1 (Cursor (0 := Node []) $ Path [] (0, 0)) []
 
-applyEdit :: State -> EditM Word Char -> State
+applyEdit :: State -> EditM Text Word -> State
 applyEdit s f = s { cursor = c'
                   , currentId = i'
                   }
@@ -51,9 +54,6 @@ onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
                           Insert -> Normal
   }
-onEvent' (KeyPress c) s | mode s == Insert = applyEdit s $ ins >=> selectNoneEnd
-  where ins cur = do
-          id <- freshId
-          change (singleton $ Atom id c) cur
+onEvent' (KeyPress c) s | mode s == Insert = applyEdit s $ change (Atom [c]) >=> selectNoneEnd
 
 onEvent' _ s = s

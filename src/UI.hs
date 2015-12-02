@@ -27,8 +27,8 @@ import View
 
 viewState :: State -> View
 viewState s = node "editor" [] [contentView, statusView]
-  where contentView = node "content" [] treeViews
-        treeViews = viewTree ["content"] $ stringify $ tree $ cursor s
+  where contentView = node "content" [] [treeView]
+        treeView = viewTree ["content"] $ tree $ cursor s
         statusView = node "status" [] [pathView, modeView]
         pathView = atom "path" [] $ pack $ pathString $ selection $ cursor s
         modeView = atom "mode" [] $ pack $ show $ mode s
@@ -38,21 +38,16 @@ viewState s = node "editor" [] [contentView, statusView]
 
 atom :: Text -> [Text] -> Text -> View
 atom id classes text =
-  Atom (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0)) text
+  ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) := Atom text
 
 node :: Text -> [Text] -> Seq View -> View
 node id classes children =
-  Node (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0)) children
+  ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) := Node children
 
-viewTree :: forall i. (Show i) => [Text] -> Tree i Text -> Seq View
-viewTree classes = outer
-  where
-    outer = fmap viewElement
-
-    viewElement :: Element i Text -> View
-    viewElement = \case
-      Atom i a  -> atom (pack $ show i) classes a
-      Node i ts -> node (pack $ show i) classes $ outer ts
+viewTree :: (Show i) => [Text] -> Tree Text i -> View
+viewTree classes = \case
+  id := Atom a  -> atom (pack $ show id) classes a
+  id := Node ts -> node (pack $ show id) classes $ fmap (viewTree classes) ts
 
 runEditor :: WithDoc ()
 runEditor = do
