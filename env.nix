@@ -11,6 +11,12 @@ let
   extend = _: haskellPackages: haskellPackages.override {
     # packageSetConfig = ...; # TODO: use LTS for stable dep versions
     overrides = self: super: {
+      bifunctors = overrideCabal super.bifunctors (drv: {
+        version = "5.1";
+        sha256 = "1p9m8rbrfzh9a4hgllh2hldpc97nxlis97y5biak6g4czs6xxn8b";
+        doCheck = false;
+      });
+
       redoak = super.callPackage
         generated
         (# TODO: fix cabal2nix conditional dep support

@@ -27,10 +27,12 @@ executable redoak
 
   build-depends:
     base >=4.8 && <4.9,
+    bifunctors >= 5.1,
     bytestring,
     containers,
     free,
     ghcjs-dom,
+    mono-traversable >= 0.10,
     mtl,
     text,
     transformers
