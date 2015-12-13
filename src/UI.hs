@@ -26,28 +26,23 @@ import Tree
 import View
 
 viewState :: State -> View
-viewState s = node "editor" [] [contentView, statusView]
-  where contentView = node "content" [] [treeView]
+viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
+  where contentView = defaultLayout "content" [] $ Node [treeView]
         treeView = viewTree ["content"] $ tree $ cursor s
-        statusView = node "status" [] [pathView, modeView]
-        pathView = atom "path" [] $ pack $ pathString $ selection $ cursor s
-        modeView = atom "mode" [] $ pack $ show $ mode s
+        statusView = defaultLayout "status" [] $ Node [pathView, modeView]
+        pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ selection $ cursor s
+        modeView = defaultLayout "mode" [] $ Atom $ pack $ show $ mode s
         pathString (Path is (start, end)) =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]
 
-atom :: Text -> [Text] -> Text -> View
-atom id classes text =
-  ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) := Atom text
-
-node :: Text -> [Text] -> Seq View -> View
-node id classes children =
-  ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) := Node children
-
 viewTree :: (Show i) => [Text] -> Tree Text i -> View
-viewTree classes = \case
-  id := Atom a  -> atom (pack $ show id) classes a
-  id := Node ts -> node (pack $ show id) classes $ fmap (viewTree classes) ts
+viewTree classes (id := e) = defaultLayout (pack $ show id) classes $ case e of
+  Atom a  -> Atom  a
+  Node ts -> Node $ fmap (viewTree classes) ts
+
+defaultLayout :: Text -> [Text] -> Element Text ViewInfo -> View
+defaultLayout id classes = (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) :=)
 
 runEditor :: WithDoc ()
 runEditor = do
