@@ -1,11 +1,10 @@
 .content {
+  display: block;
   white-space: pre-wrap;
   margin: 0.2ex;
-}
-
-div.content {
   padding: 1px;
   border: 0.3ex solid red;
+  float: left;
 }
 
 #status {
