@@ -30,7 +30,7 @@ data Mode
   deriving (Eq, Ord, Show)
 
 initState :: State
-initState = State Normal 1 (Cursor (0 := Node []) $ Path [] (0, 0)) []
+initState = State Normal 1 (Cursor (T $ 0 := Node []) $ Select (0, 0)) []
 
 applyEdit :: State -> EditM Text Word -> State
 applyEdit s f = s { cursor = c'

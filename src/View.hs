@@ -35,7 +35,7 @@ effectView :: View -> WithDoc ()
 effectView new = do
   view <- makeNode new
   Just body <- getBody ?doc
-  old <- getElementById ?doc (ident $ ann new)
+  old <- getElementById ?doc (ident $ ann $ unTree new)
   maybe (return ()) (removeNode . toNode) old
   appendChild body $ Just view
   return ()
@@ -47,10 +47,9 @@ removeNode node = do
   return ()
 
 makeNode :: View -> WithDoc Node
-makeNode (ViewInfo id cs _ _ := Atom t) =
-  el "span" (attrs id cs) =<< mapM textNode [t]
-makeNode (ViewInfo id cs _ _ := Node es) =
-  el "div" (attrs id cs) =<< mapM makeNode (toList es)
+makeNode (T (ViewInfo id cs _ _ := e)) = case e of
+  Atom t  -> el "span" (attrs id cs) =<< mapM textNode [t]
+  Node es -> el "div"  (attrs id cs) =<< mapM makeNode (toList es)
 
 attrs :: Text -> [Text] -> [(Text, Text)]
 attrs id classes = [("id", id), ("class", intercalate " " classes)]

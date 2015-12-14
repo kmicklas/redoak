@@ -32,17 +32,23 @@ viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
         statusView = defaultLayout "status" [] $ Node [pathView, modeView]
         pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ selection $ cursor s
         modeView = defaultLayout "mode" [] $ Atom $ pack $ show $ mode s
-        pathString (Path is (start, end)) =
+        pathString path =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]
+          where is = f path
+                f = \case (Select _) -> []
+                          (i :\/ is)  -> i : f is
+                (start, end) = g path
+                g = \case (Select x) -> x
+                          (_ :\/ is)  -> g is
 
 viewTree :: (Show i) => [Text] -> Tree Text i -> View
-viewTree classes (id := e) = defaultLayout (pack $ show id) classes $ case e of
+viewTree classes (T (id := e)) = defaultLayout (pack $ show id) classes $ case e of
   Atom a  -> Atom  a
   Node ts -> Node $ fmap (viewTree classes) ts
 
-defaultLayout :: Text -> [Text] -> Element Text ViewInfo -> View
-defaultLayout id classes = (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) :=)
+defaultLayout :: Text -> [Text] -> Element Text View -> View
+defaultLayout id classes = T . (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) :=)
 
 runEditor :: WithDoc ()
 runEditor = do
