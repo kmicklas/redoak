@@ -14,6 +14,7 @@ module Tree
   , Edit
   , EditT
   , EditM
+  , mapEdit
   , freshId
 
   , change
@@ -31,6 +32,7 @@ module Tree
   , moveRight
   ) where
 
+import Control.Monad
 import Control.Monad.Trans.State.Lazy
 
 import Data.Bifunctor
@@ -85,6 +87,11 @@ data Cursor a ann
 type Edit a ann = Cursor a ann -> Cursor a ann
 type EditT m a ann = Cursor a ann -> StateT ann m (Cursor a ann)
 type EditM a ann = EditT Identity a ann
+
+mapEdit :: (m (Cursor a ann, ann)
+         -> n (Cursor a ann, ann))
+         -> EditT m a ann -> EditT n a ann
+mapEdit = fmap . mapStateT
 
 freshId :: Num i => State i i
 freshId = do
@@ -162,12 +169,12 @@ change new = localEdit $ \(old, (start, end)) -> let
 
 -- | Go back to editing parent, right of current position
 -- | new parent if at root
-pop :: EditM a ann
-pop (Cursor t p) = return $ Cursor t $ f p
+pop :: EditT Maybe a ann
+pop (Cursor t p) = Cursor t <$> f p
   where f = \case
-          oops@(Select _)  -> oops
-          (i :\/ Select _) -> Select (i + 1, i + 1)
-          (i :\/ is)       -> i :\/ f is
+          oops@(Select _)  -> mzero
+          (i :\/ Select _) -> return $ Select (i + 1, i + 1)
+          (i :\/ is)       -> (i :\/) <$> f is
 
 -- | Create new node, edit at begining of it
 push :: Num ann => EditM Text ann

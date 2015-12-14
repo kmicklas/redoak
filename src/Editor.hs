@@ -7,8 +7,11 @@ module Editor
   ) where
 
 import Control.Monad
-import Control.Monad.Trans.State.Lazy hiding (State)
+import Control.Monad.Identity
+import Control.Monad.State.Lazy hiding (State)
+--import Control.Monad.Trans.State.Lazy hiding (State)
 
+import Data.Maybe
 import Data.Sequence
 import Data.Text
 
@@ -38,6 +41,13 @@ applyEdit s f = s { cursor = c'
                   }
   where (c', i') = runState (f $ cursor s) $ currentId s
 
+applyFailableEdit :: State -> EditT Maybe Text Word -> State
+applyFailableEdit s f = fromMaybe s $ do
+  (c', i') <- runStateT (f $ cursor s) $ currentId s
+  return $ s { cursor = c'
+             , currentId = i'
+             }
+
 onEvent :: Event -> State -> State
 onEvent e s = onEvent' e $ s { events = e : events s }
 
@@ -47,8 +57,9 @@ onEvent' (KeyDown ArrowLeft)  s = applyEdit s shiftLeft
 onEvent' (KeyDown ArrowRight) s = applyEdit s shiftRight
 
 onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
-onEvent' (KeyDown Enter) s | mode s == Insert = applyEdit s pop
-onEvent' (KeyPress ' ')  s | mode s == Insert = applyEdit s $ pop >=> push
+onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
+onEvent' (KeyPress ' ')  s | mode s == Insert = applyFailableEdit s $
+                                                pop >=> mapEdit (Just . runIdentity) push
 
 onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
