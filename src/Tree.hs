@@ -109,7 +109,7 @@ elimIsSequence f = \case
   Node s -> f s
 
 localEdit :: Monad m
-          => ((Trunk a ann, Range) -> StateT ann m (Trunk a ann, Range))
+          => ((Trunk a ann, Range) -> StateT ann m (Trunk a ann, Path))
           -> EditT m a ann
 localEdit f (Cursor (T (a := e)) path) = do
   (e', path') <- case (path, e) of
@@ -120,12 +120,12 @@ localEdit f (Cursor (T (a := e)) path) = do
 
       return ( Node $ S.update i child' ts
              , i :\/ is')
-    (Select range, _) -> second Select <$> f (e, range)
+    (Select range, _) -> f (e, range)
 
   return $ Cursor (T $ a := e') path'
 
 localMove :: (Int -> Range -> Range) -> EditM Text ann
-localMove f = localEdit $ \(t, r) -> return $ (t, f (elimIsSequence olength t) r)
+localMove f = localEdit $ \(t, r) -> return $ (t, Select $ f (elimIsSequence olength t) r)
 
 change :: forall ann atom
        .  Num ann
@@ -137,8 +137,8 @@ change new = localEdit $ \(old, (start, end)) -> let
       => seq
       -> seq
       -> (seq -> Element atom (Tree atom ann))
-      -> StateT ann Identity (Trunk atom ann, Range)
-    f old new inj = return $ (inj seq', h new)
+      -> StateT ann Identity (Trunk atom ann, Path)
+    f old new inj = return $ (inj seq', Select $ h new)
       where seq' = mconcat [lPart, new, rPart]
             (lPart, rPart) = g old
 
@@ -163,7 +163,7 @@ change new = localEdit $ \(old, (start, end)) -> let
       lId <- freshId
       rId <- freshId
       let cs' = [T $ lId := Atom lPart] >< n >< [T $ rId := Atom rPart]
-      return $ (Node cs', (start', end'))
+      return $ (Node cs', Select (start', end'))
         where (lPart, rPart) = g o
               (start', end') = h n
 
