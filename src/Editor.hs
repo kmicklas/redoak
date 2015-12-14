@@ -9,7 +9,6 @@ module Editor
 import Control.Monad
 import Control.Monad.Identity
 import Control.Monad.State.Lazy hiding (State)
---import Control.Monad.Trans.State.Lazy hiding (State)
 
 import Data.Maybe
 import Data.Sequence
@@ -33,7 +32,7 @@ data Mode
   deriving (Eq, Ord, Show)
 
 initState :: State
-initState = State Normal 1 (Cursor (T $ 0 := Node []) $ Select (0, 0)) []
+initState = State Normal 1 (T $ (0, Select (0, 0)) := Node []) []
 
 applyEdit :: State -> EditM Text Word -> State
 applyEdit s f = s { cursor = c'

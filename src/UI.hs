@@ -12,6 +12,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Bifunctor
 import Data.List
 import Data.Sequence
 import Data.Text
@@ -28,19 +29,13 @@ import View
 viewState :: State -> View
 viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
   where contentView = defaultLayout "content" [] $ Node [treeView]
-        treeView = viewTree ["content"] $ tree $ cursor s
+        treeView = viewTree ["content"] $ second fst $ cursor s
         statusView = defaultLayout "status" [] $ Node [pathView, modeView]
-        pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ selection $ cursor s
+        pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ path $ cursor s
         modeView = defaultLayout "mode" [] $ Atom $ pack $ show $ mode s
-        pathString path =
+        pathString (is, (start, end)) =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]
-          where is = f path
-                f = \case (Select _) -> []
-                          (i :\/ is)  -> i : f is
-                (start, end) = g path
-                g = \case (Select x) -> x
-                          (_ :\/ is)  -> g is
 
 viewTree :: (Show i) => [Text] -> Tree Text i -> View
 viewTree classes (T (id := e)) = defaultLayout (pack $ show id) classes $ case e of

@@ -5,17 +5,20 @@
 
 module Tree
   ( Tree(..)
+  , Trunk
   , Ann(..)
   , Element(..)
   , Range
-  , Path(..)
-  , Cursor(..)
+  , Selection(..)
+  , Path
+  , Cursor
 
   , Edit
   , EditT
   , EditM
   , mapEdit
   , freshId
+  , path
 
   , change
   , pop
@@ -64,32 +67,31 @@ deriveBifunctor ''Element
 deriveBifoldable ''Element
 deriveBitraversable ''Element
 
-type Trunk a ann = (Element a (Tree a ann))
+type Trunk a ann = Element a (Tree a ann)
 
 newtype Tree a ann
   = T { unTree :: Ann (Trunk a ann) ann }
   deriving (Eq, Ord, Show)
+deriveBifunctor ''Tree
+deriveBifoldable ''Tree
+deriveBitraversable ''Tree
 
 type Range = (Int, Int)
 
-data Path
-  = Int :\/ Path
+data Selection
+  = Descend Int
   | Select Range
   deriving (Eq, Ord, Show)
 
-data Cursor a ann
-  = Cursor
-    { tree :: Tree a ann
-    , selection :: Path
-    }
-  deriving (Eq, Ord, Show)
+type Path = ([Int], Range)
+
+type Cursor a ann = Tree a (ann, Selection)
 
 type Edit a ann = Cursor a ann -> Cursor a ann
 type EditT m a ann = Cursor a ann -> StateT ann m (Cursor a ann)
 type EditM a ann = EditT Identity a ann
 
-mapEdit :: (m (Cursor a ann, ann)
-         -> n (Cursor a ann, ann))
+mapEdit :: (m (Cursor a ann, ann) -> n (Cursor a ann, ann))
          -> EditT m a ann -> EditT n a ann
 mapEdit = fmap . mapStateT
 
@@ -98,6 +100,10 @@ freshId = do
   i <- get
   put $ i + 1
   return i
+
+path :: Cursor a ann -> Path
+path (T ((_, Descend i) := Node cs)) = first (i :) $ path $ S.index cs i
+path (T ((_, Select r) := _)) = ([], r)
 
 elimIsSequence :: forall seq x ret
                .  IsSequence seq
@@ -108,83 +114,80 @@ elimIsSequence f = \case
   Atom a -> f a
   Node s -> f s
 
-localEdit :: Monad m
-          => ((Trunk a ann, Range) -> StateT ann m (Trunk a ann, Path))
-          -> EditT m a ann
-localEdit f (Cursor (T (a := e)) path) = do
-  (e', path') <- case (path, e) of
-    (_ :\/ _,  Atom  _) -> error "path is too deep"
-    (i :\/ is, Node ts) -> do
-      let child = S.index ts i
-      (Cursor child' is') <- localEdit f $ Cursor child is
-
-      return ( Node $ S.update i child' ts
-             , i :\/ is')
-    (Select range, _) -> f (e, range)
-
-  return $ Cursor (T $ a := e') path'
+localEdit :: Monad m => EditT m a ann -> EditT m a ann
+localEdit f t@(T ((a, sel) := e)) =
+  case (sel, e) of
+    (Descend _, Atom _)  -> error "path is too deep"
+    (Descend i, Node ts) -> do
+      child <- localEdit f $ S.index ts i
+      return $ T $ (a, sel) := Node (S.update i child ts)
+    (Select range, _) -> f t
 
 localMove :: (Int -> Range -> Range) -> EditM Text ann
-localMove f = localEdit $ \(t, r) -> return $ (t, Select $ f (elimIsSequence olength t) r)
+localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
+  return $ T $ (a, Select $ f (elimIsSequence olength e) r) := e
 
 change :: forall ann atom
        .  Num ann
        => IsSequence atom
-       => Trunk atom ann
+       => Trunk atom (ann, Selection)
        -> EditM atom ann
-change new = localEdit $ \(old, (start, end)) -> let
-    f :: forall seq. IsSequence seq
+change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
+    insert :: forall seq. IsSequence seq
       => seq
       -> seq
-      -> (seq -> Element atom (Tree atom ann))
-      -> StateT ann Identity (Trunk atom ann, Path)
-    f old new inj = return $ (inj seq', Select $ h new)
+      -> (seq -> Trunk atom (ann, Selection))
+      -> StateT ann Identity (Cursor atom ann)
+    insert old new inj = return $ T $ (a, Select $ adjustRange new) := inj seq'
       where seq' = mconcat [lPart, new, rPart]
-            (lPart, rPart) = g old
+            (lPart, rPart) = split old
 
-    g :: forall seq. IsSequence seq => seq -> (seq, seq)
-    g old = ( SS.take (fromIntegral $ min start end) old
-            , SS.drop (fromIntegral $ max start end) old)
+    split :: forall seq. IsSequence seq => seq -> (seq, seq)
+    split old = ( SS.take (fromIntegral $ min start end) old
+                , SS.drop (fromIntegral $ max start end) old
+                )
 
-    h :: forall seq.IsSequence seq => seq -> (Int, Int)
-    h new = if start <= end
+    adjustRange :: forall seq. IsSequence seq => seq -> Range
+    adjustRange new = if start <= end
             then (start, start + olength new)
             else (end + olength new, end)
 
   in case (old, new) of
     -- homogenous
-    (Atom o, Atom n) -> f o n Atom
-    (Node o, Node n) -> f o n Node
+    (Atom o, Atom n) -> insert o n Atom
+    (Node o, Node n) -> insert o n Node
     -- heterogenous
     (Node o, Atom _) -> do
       id <- freshId
-      f o [T $ id := new] Node
+      insert o [T $ (id, Select (0, 0)) := new] Node
     (Atom o, Node n) -> do
       lId <- freshId
       rId <- freshId
-      let cs' = [T $ lId := Atom lPart] >< n >< [T $ rId := Atom rPart]
-      return $ (Node cs', Select (start', end'))
-        where (lPart, rPart) = g o
-              (start', end') = h n
+      let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
+      return $ T $ (a, Select (start', end')) := Node cs
+        where (lPart, rPart) = split o
+              (start', end') = adjustRange n
+
+    where init ann = (ann, Select (0, 0))
 
 -- | Go back to editing parent, right of current position
 -- | new parent if at root
 pop :: EditT Maybe a ann
-pop (Cursor t p) = Cursor t <$> f p
-  where f = \case
-          oops@(Select _)  -> mzero
-          (i :\/ Select _) -> return $ Select (i + 1, i + 1)
-          (i :\/ is)       -> (i :\/) <$> f is
+pop (T ((a, Select _) := _)) = mzero
+pop (T ((a, Descend i) := Node cs)) =
+  case S.index cs i of
+    T ((a, Select _) := _) -> return $ T $ (a, Select (i + 1, i + 1)) := Node cs
+    t@(T ((a, Descend _) := _)) -> do
+      sub <- pop t
+      return $ T $ (a, Descend i) := Node (update i sub cs)
 
 -- | Create new node, edit at begining of it
 push :: Num ann => EditM Text ann
 push c = do
   id <- freshId
-  Cursor t p <- change (Node [T $ id := Node []]) c
-  return $ Cursor t $ f p
-  where f = \case
-          Select (start, end) -> min start end :\/ Select (0, 0)
-          i :\/ is            -> i :\/ f is
+  T ((a, Select (start, end)) := e) <-
+    change (Node [T $ (id, Select (0, 0)) := Node []]) c
+  return $ T $ (a, Descend $ min start end) := e
 
 switchBounds :: EditM Text ann
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
