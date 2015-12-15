@@ -71,8 +71,8 @@ viewCursor (T ((id, sel) := e)) =
 
         dirClass (start, end) =
           case compare start end of
-            LT -> "cursor-at-front"
-            GT -> "cursor-at-back"
+            LT -> "cursor-at-back"
+            GT -> "cursor-at-front"
             EQ -> "empty-selection"
 
 -- | View a tree which doesn't contain the selection
