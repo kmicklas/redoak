@@ -22,9 +22,10 @@ module Tree
 
   , change
   , insertNode
+  , ascend
   , descend
-  , pop
   , push
+  , pop
 
   , switchBounds
   , startMin
@@ -51,7 +52,6 @@ import Data.List      as L
 import Data.Maybe     as M
 import Data.Sequence  as S
 import Data.Sequences as SS
-import Data.Text      as T
 import Data.Word
 
 data Ann a ann
@@ -125,7 +125,7 @@ localEdit f t@(T ((a, sel) := e)) =
       return $ T $ (a, sel) := Node (S.update i child ts)
     (Select range, _) -> f t
 
-localMove :: (Int -> Range -> Range) -> EditM Text ann
+localMove :: IsSequence a => (Int -> Range -> Range) -> EditM a ann
 localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
   return $ T $ (a, Select $ f (elimIsSequence olength e) r) := e
 
@@ -172,22 +172,21 @@ change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
 
     where init ann = (ann, Select (0, 0))
 
--- | Go back to editing parent, right of current position
--- | new parent if at root
-pop :: EditT Maybe a ann
-pop (T ((a, Select _) := _)) = mzero
-pop (T ((a, Descend i) := Node cs)) =
-  case S.index cs i of
-    T ((a, Select _) := _) -> return $ T $ (a, Select (i + 1, i + 1)) := Node cs
-    t@(T ((a, Descend _) := _)) -> do
-      sub <- pop t
-      return $ T $ (a, Descend i) := Node (update i sub cs)
-
 -- | Insert a new empty node at the cursor
 insertNode :: (IsSequence a, Num ann) => EditM a ann
 insertNode c = do
   id <- freshId
   change (Node [T $ (id, Select (0, 0)) := Node []]) c
+
+-- | Select the node which we're currently inside
+ascend :: EditT Maybe a ann
+ascend (T ((a, Select _) := _)) = mzero
+ascend (T ((a, Descend i) := Node cs)) =
+  case S.index cs i of
+    T ((a, Select _) := _) -> return $ T $ (a, Select (i, i + 1)) := Node cs
+    t@(T ((a, Descend _) := _)) -> do
+      sub <- ascend t
+      return $ T $ (a, Descend i) := Node (update i sub cs)
 
 -- | Descend into selection, if only one element is selected
 descend :: EditT Maybe a ann
@@ -197,32 +196,36 @@ descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
   else mzero
 
 -- | Create new node, edit at begining of it
-push :: Num ann => EditM Text ann
+push :: (IsSequence a, Num ann) => EditM a ann
 push = insertNode >=> mapEdit (Identity . fromJust) descend
 
-switchBounds :: EditM Text ann
+-- | Go back to editing parent, right of current position
+pop :: IsSequence a => EditT Maybe a ann
+pop = ascend >=> mapEdit (Just . runIdentity) selectNoneEnd
+
+switchBounds :: IsSequence a => EditM a ann
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
 
-startMin :: EditM Text ann
+startMin :: IsSequence a => EditM a ann
 startMin = localMove $ \ _ (_, end) -> (0, end)
 
-endMax :: EditM Text ann
+endMax :: IsSequence a => EditM a ann
 endMax = localMove $ \ size (start, _) -> (start, size)
 
-selectNoneStart :: EditM Text ann
+selectNoneStart :: IsSequence a => EditM a ann
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: EditM Text ann
+selectNoneEnd :: IsSequence a => EditM a ann
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: EditM Text ann
+shiftLeft :: IsSequence a => EditM a ann
 shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
-shiftRight :: EditM Text ann
+shiftRight :: IsSequence a => EditM a ann
 shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
-moveLeft :: EditM Text ann
+moveLeft :: IsSequence a => EditM a ann
 moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
 
-moveRight :: EditM Text ann
+moveRight :: IsSequence a => EditM a ann
 moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
