@@ -206,9 +206,11 @@ ascend (T ((a, Descend i) := Node cs)) =
 -- | Descend into selection, if only one element is selected
 descend :: EditT Maybe a ann
 descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
-  if abs (start - end) == 1
+  if abs (start - end) == 1 && isNode e
   then return $ T $ (a, Descend $ min start end) := e
   else mzero
+  where isNode (Node _) = True
+        isNode _        = False
 
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann) => EditM a ann
