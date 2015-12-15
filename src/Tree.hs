@@ -21,6 +21,8 @@ module Tree
   , path
 
   , change
+  , insertNode
+  , descend
   , pop
   , push
 
@@ -181,13 +183,22 @@ pop (T ((a, Descend i) := Node cs)) =
       sub <- pop t
       return $ T $ (a, Descend i) := Node (update i sub cs)
 
+-- | Insert a new empty node at the cursor
+insertNode :: (IsSequence a, Num ann) => EditM a ann
+insertNode c = do
+  id <- freshId
+  change (Node [T $ (id, Select (0, 0)) := Node []]) c
+
+-- | Descend into selection, if only one element is selected
+descend :: EditT Maybe a ann
+descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
+  if abs (start - end) == 1
+  then return $ T $ (a, Descend $ min start end) := e
+  else mzero
+
 -- | Create new node, edit at begining of it
 push :: Num ann => EditM Text ann
-push c = do
-  id <- freshId
-  T ((a, Select (start, end)) := e) <-
-    change (Node [T $ (id, Select (0, 0)) := Node []]) c
-  return $ T $ (a, Descend $ min start end) := e
+push = insertNode >=> mapEdit (Identity . fromJust) descend
 
 switchBounds :: EditM Text ann
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
