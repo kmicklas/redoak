@@ -12,12 +12,20 @@
 #selection {
   position: relative;
   height: 1rem;
+  background: aquamarine;
 }
 
-.empty-selection::after {
+.empty-selection::after, .cursor-at-back::after {
   display: inline;
   position: absolute;
   border-left: 0.3ex solid green;
+  content: " ";
+}
+
+.cursor-at-front::before {
+  display: inline;
+  position: absolute;
+  border-right: 0.3ex solid green;
   content: " ";
 }
 
