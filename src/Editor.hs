@@ -65,16 +65,14 @@ onEvent' (KeyPress 'L') s | mode s == Normal = applyFailableEdit s moveRight
 onEvent' (KeyPress 'd') s | mode s == Normal = applyEdit s $ change $ Node []
 
 onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
-onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
-onEvent' (KeyPress ' ')  s | mode s == Insert =
-  applyFailableEdit s $ pop >=> justEdit push
+onEvent' (KeyPress ' ')  s | mode s == Insert = applyFailableEdit s pop
 
-onEvent' (KeyDown Escape) s | mode s == Normal = s { mode = Insert }
-onEvent' (KeyDown Escape) s | mode s == Insert = s { mode = Normal }
+onEvent' (KeyPress ' ')  s | mode s == Normal = s { mode = Insert }
+onEvent' (KeyDown Enter) s | mode s == Insert = s { mode = Normal }
 
 onEvent' (KeyPress c) s | mode s == Insert =
   applyFailableEdit s $ justEdit (change $ Atom [c])
-                    >=> (justEdit $ maybeEdit $ descend >=> endMax)
+                    >=> justEdit (maybeEdit $ descend >=> endMax)
                     >=> selectNoneEnd
 
 onEvent' _ s = s
