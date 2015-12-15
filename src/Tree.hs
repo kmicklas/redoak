@@ -191,7 +191,10 @@ change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
       let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
       return $ T $ (a, Select (start', end')) := Node cs
         where (lPart, rPart) = split o
-              (start', end') = adjustRange n
+              (start', end') =
+                if start <= end
+                then (1, 1 + S.length n)
+                else (1 + S.length n, 1)
 
     where init ann = (ann, Select (0, 0))
 
