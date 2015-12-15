@@ -17,6 +17,7 @@ module Tree
   , EditT
   , EditM
   , mapEdit
+  , justEdit
   , freshId
   , path
 
@@ -96,6 +97,9 @@ type EditM a ann = EditT Identity a ann
 mapEdit :: (m (Cursor a ann, ann) -> n (Cursor a ann, ann))
          -> EditT m a ann -> EditT n a ann
 mapEdit = fmap . mapStateT
+
+justEdit :: EditM a ann -> EditT Maybe a ann
+justEdit = mapEdit $ Just . runIdentity
 
 freshId :: Num i => State i i
 freshId = do
@@ -201,7 +205,7 @@ push = insertNode >=> mapEdit (Identity . fromJust) descend
 
 -- | Go back to editing parent, right of current position
 pop :: IsSequence a => EditT Maybe a ann
-pop = ascend >=> mapEdit (Just . runIdentity) selectNoneEnd
+pop = ascend >=> justEdit selectNoneEnd
 
 switchBounds :: IsSequence a => EditM a ann
 switchBounds = localMove $ \ _ (start, end) -> (end, start)

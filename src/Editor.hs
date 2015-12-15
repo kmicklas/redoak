@@ -58,7 +58,7 @@ onEvent' (KeyDown ArrowRight) s = applyEdit s shiftRight
 onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
 onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
 onEvent' (KeyPress ' ')  s | mode s == Insert = applyFailableEdit s $
-                                                pop >=> mapEdit (Just . runIdentity) push
+                                                pop >=> justEdit push
 
 onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
