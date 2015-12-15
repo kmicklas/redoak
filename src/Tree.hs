@@ -240,7 +240,7 @@ shiftRight :: IsSequence a => EditT Maybe a ann
 shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
 moveLeft :: IsSequence a => EditT Maybe a ann
-moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
+moveLeft = localMove $ \ _ (start, end) -> (start, end - 1)
 
 moveRight :: IsSequence a => EditT Maybe a ann
-moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
+moveRight = localMove $ \ _ (start, end) -> (start, end + 1)
