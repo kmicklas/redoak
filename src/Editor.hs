@@ -52,18 +52,19 @@ onEvent e s = onEvent' e $ s { events = e : events s }
 
 onEvent' :: Event -> State -> State
 
-onEvent' (KeyDown ArrowLeft)  s = applyEdit s shiftLeft
-onEvent' (KeyDown ArrowRight) s = applyEdit s shiftRight
+onEvent' (KeyDown ArrowLeft)  s = applyFailableEdit s shiftLeft
+onEvent' (KeyDown ArrowRight) s = applyFailableEdit s shiftRight
 
 onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
 onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
-onEvent' (KeyPress ' ')  s | mode s == Insert = applyFailableEdit s $
-                                                pop >=> justEdit push
+onEvent' (KeyPress ' ')  s | mode s == Insert =
+  applyFailableEdit s $ pop >=> justEdit push
 
 onEvent' (KeyDown Escape) s = s
   { mode = case mode s of Normal -> Insert
                           Insert -> Normal
   }
-onEvent' (KeyPress c) s | mode s == Insert = applyEdit s $ change (Atom [c]) >=> selectNoneEnd
+onEvent' (KeyPress c) s | mode s == Insert =
+  applyFailableEdit s $ justEdit (change $ Atom [c]) >=> selectNoneEnd
 
 onEvent' _ s = s

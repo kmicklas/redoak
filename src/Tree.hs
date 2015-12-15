@@ -136,9 +136,13 @@ localEdit f t@(T ((a, sel) := e)) =
       return $ T $ (a, sel) := Node (S.update i child ts)
     (Select range, _) -> f t
 
-localMove :: IsSequence a => (Int -> Range -> Range) -> EditM a ann
+localMove :: IsSequence a => (Int -> Range -> Range) -> EditT Maybe a ann
 localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
-  return $ T $ (a, Select $ f (elimIsSequence olength e) r) := e
+  let len = elimIsSequence olength e
+      (start', end') = f len r
+  in if min start' end' < 0 || max start' end' > len
+  then mzero
+  else return $ T $ (a, Select (start', end')) := e
 
 change :: forall ann atom
        .  Fresh ann
@@ -212,31 +216,31 @@ push = insertNode >=> mapEdit (Identity . fromJust) descend
 
 -- | Go back to editing parent, right of current position
 pop :: IsSequence a => EditT Maybe a ann
-pop = ascend >=> justEdit selectNoneEnd
+pop = ascend >=> selectNoneEnd
 
-switchBounds :: IsSequence a => EditM a ann
+switchBounds :: IsSequence a => EditT Maybe a ann
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
 
-startMin :: IsSequence a => EditM a ann
+startMin :: IsSequence a => EditT Maybe a ann
 startMin = localMove $ \ _ (_, end) -> (0, end)
 
-endMax :: IsSequence a => EditM a ann
+endMax :: IsSequence a => EditT Maybe a ann
 endMax = localMove $ \ size (start, _) -> (start, size)
 
-selectNoneStart :: IsSequence a => EditM a ann
+selectNoneStart :: IsSequence a => EditT Maybe a ann
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: IsSequence a => EditM a ann
+selectNoneEnd :: IsSequence a => EditT Maybe a ann
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: IsSequence a => EditM a ann
+shiftLeft :: IsSequence a => EditT Maybe a ann
 shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
-shiftRight :: IsSequence a => EditM a ann
+shiftRight :: IsSequence a => EditT Maybe a ann
 shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
-moveLeft :: IsSequence a => EditM a ann
+moveLeft :: IsSequence a => EditT Maybe a ann
 moveLeft = localMove $ \ _ (start, end) -> (start, end + 1)
 
-moveRight :: IsSequence a => EditM a ann
+moveRight :: IsSequence a => EditT Maybe a ann
 moveRight = localMove $ \ _ (start, end) -> (start, end - 1)
