@@ -60,10 +60,9 @@ onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
 onEvent' (KeyPress ' ')  s | mode s == Insert =
   applyFailableEdit s $ pop >=> justEdit push
 
-onEvent' (KeyDown Escape) s = s
-  { mode = case mode s of Normal -> Insert
-                          Insert -> Normal
-  }
+onEvent' (KeyDown Escape) s | mode s == Normal = s { mode = Insert }
+onEvent' (KeyDown Escape) s | mode s == Insert = s { mode = Normal }
+
 onEvent' (KeyPress c) s | mode s == Insert =
   applyFailableEdit s $ justEdit (change $ Atom [c]) >=> selectNoneEnd
 
