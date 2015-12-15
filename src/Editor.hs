@@ -55,6 +55,15 @@ onEvent' :: Event -> State -> State
 onEvent' (KeyDown ArrowLeft)  s = applyFailableEdit s shiftLeft
 onEvent' (KeyDown ArrowRight) s = applyFailableEdit s shiftRight
 
+onEvent' (KeyPress 'i') s | mode s == Normal = applyFailableEdit s ascend
+onEvent' (KeyPress 'k') s | mode s == Normal = applyFailableEdit s descend
+onEvent' (KeyPress 'j') s | mode s == Normal = applyFailableEdit s shiftLeft
+onEvent' (KeyPress 'l') s | mode s == Normal = applyFailableEdit s shiftRight
+onEvent' (KeyPress 'J') s | mode s == Normal = applyFailableEdit s moveLeft
+onEvent' (KeyPress 'L') s | mode s == Normal = applyFailableEdit s moveRight
+
+onEvent' (KeyPress 'd') s | mode s == Normal = applyEdit s $ change $ Node []
+
 onEvent' (KeyDown Tab)   s | mode s == Insert = applyEdit s push
 onEvent' (KeyDown Enter) s | mode s == Insert = applyFailableEdit s pop
 onEvent' (KeyPress ' ')  s | mode s == Insert =
