@@ -12,13 +12,14 @@ module Tree
   , Selection(..)
   , Path
   , Cursor
+  , Fresh
 
   , Edit
   , EditT
   , EditM
   , mapEdit
   , justEdit
-  , freshId
+  , getFresh
   , path
 
   , change
@@ -94,6 +95,12 @@ type Edit a ann = Cursor a ann -> Cursor a ann
 type EditT m a ann = Cursor a ann -> StateT ann m (Cursor a ann)
 type EditM a ann = EditT Identity a ann
 
+class Fresh a where
+  fresh :: a -> a
+
+instance Fresh Word where
+  fresh = (+ 1)
+
 mapEdit :: (m (Cursor a ann, ann) -> n (Cursor a ann, ann))
          -> EditT m a ann -> EditT n a ann
 mapEdit = fmap . mapStateT
@@ -101,10 +108,10 @@ mapEdit = fmap . mapStateT
 justEdit :: EditM a ann -> EditT Maybe a ann
 justEdit = mapEdit $ Just . runIdentity
 
-freshId :: Num i => State i i
-freshId = do
+getFresh :: Fresh i => State i i
+getFresh = do
   i <- get
-  put $ i + 1
+  put $ fresh i
   return i
 
 path :: Cursor a ann -> Path
@@ -134,7 +141,7 @@ localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
   return $ T $ (a, Select $ f (elimIsSequence olength e) r) := e
 
 change :: forall ann atom
-       .  Num ann
+       .  Fresh ann
        => IsSequence atom
        => Trunk atom (ann, Selection)
        -> EditM atom ann
@@ -164,11 +171,11 @@ change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
     (Node o, Node n) -> insert o n Node
     -- heterogenous
     (Node o, Atom _) -> do
-      id <- freshId
+      id <- getFresh
       insert o [T $ (id, Select (0, 0)) := new] Node
     (Atom o, Node n) -> do
-      lId <- freshId
-      rId <- freshId
+      lId <- getFresh
+      rId <- getFresh
       let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
       return $ T $ (a, Select (start', end')) := Node cs
         where (lPart, rPart) = split o
@@ -177,9 +184,9 @@ change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
     where init ann = (ann, Select (0, 0))
 
 -- | Insert a new empty node at the cursor
-insertNode :: (IsSequence a, Num ann) => EditM a ann
+insertNode :: (IsSequence a, Fresh ann) => EditM a ann
 insertNode c = do
-  id <- freshId
+  id <- getFresh
   change (Node [T $ (id, Select (0, 0)) := Node []]) c
 
 -- | Select the node which we're currently inside
@@ -200,7 +207,7 @@ descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
   else mzero
 
 -- | Create new node, edit at begining of it
-push :: (IsSequence a, Num ann) => EditM a ann
+push :: (IsSequence a, Fresh ann) => EditM a ann
 push = insertNode >=> mapEdit (Identity . fromJust) descend
 
 -- | Go back to editing parent, right of current position
