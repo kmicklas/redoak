@@ -19,6 +19,7 @@ module Tree
   , EditM
   , mapEdit
   , justEdit
+  , maybeEdit
   , getFresh
   , path
 
@@ -107,6 +108,13 @@ mapEdit = fmap . mapStateT
 
 justEdit :: EditM a ann -> EditT Maybe a ann
 justEdit = mapEdit $ Just . runIdentity
+
+maybeEdit :: EditT Maybe a ann -> EditM a ann
+maybeEdit e c = do
+  ann <- get
+  case runStateT (e c) ann of
+    Nothing -> return c
+    Just (c', ann') -> put ann' >> return c'
 
 getFresh :: Fresh i => State i i
 getFresh = do
