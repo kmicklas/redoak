@@ -72,8 +72,9 @@ makeLayout = layoutWithSelection . findPath True
           Atom a  -> Atom a
           Node ts -> Node $ case sel of
             Select  _ -> findPath False <$> ts
-            Descend i ->
-              fmap (uncurry findPath)
+            Descend i -> case onPath of
+              False -> findPath False <$> ts
+              True  -> fmap (uncurry findPath)
                 $ fmap (first (== i))
                 $ snd
                 $ mapAccumL (\ count elem -> (count + 1, (count, elem))) 0 ts
