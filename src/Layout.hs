@@ -70,14 +70,12 @@ makeLayout = layoutWithSelection . findPath True
                  -> Tree Text ((Word, Selection), Bool)
         findPath onPath (T (a@(_, sel) := e)) = T $ ((a, onPath) :=) $ case e of
           Atom a  -> Atom a
-          Node ts -> Node $ case sel of
-            Select  _ -> findPath False <$> ts
-            Descend i -> case onPath of
-              False -> findPath False <$> ts
-              True  -> fmap (uncurry findPath)
-                $ fmap (first (== i))
-                $ snd
-                $ mapAccumL (\ count elem -> (count + 1, (count, elem))) 0 ts
+          Node ts -> Node $ case (onPath, sel) of
+            (True, Descend i) -> fmap (uncurry findPath)
+                                   $ fmap (first (== i))
+                                   $ snd
+                                   $ mapAccumL (\ count elem -> (count + 1, (count, elem))) 0 ts
+            _                 -> findPath False <$> ts
 
 computeFull :: Rules r => Layout -> r LayoutDim
 computeFull (T (info := e)) = do
