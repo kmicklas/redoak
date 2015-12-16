@@ -85,7 +85,8 @@ viewTree (T ((id, _) := e)) =
   where classes = ["content"]
 
 defaultLayout :: Text -> [Text] -> Element Text View -> View
-defaultLayout id classes = T . (ViewInfo id classes (Width 0, Height 0) (X 0, Y 0) :=)
+defaultLayout id classes =
+  T . (ViewInfo (Just id) classes (W 0, H 0) (X 0, Y 0) :=)
 
 runEditor :: WithDoc ()
 runEditor = do

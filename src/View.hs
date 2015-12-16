@@ -2,6 +2,7 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 
 module View 
   ( ViewInfo(..)
@@ -22,7 +23,7 @@ import Tree
 
 data ViewInfo
   = ViewInfo
-    { ident :: Text
+    { ident :: Maybe Text
     , classes :: [Text]
     , dim :: Dimensions
     , pos :: Position
@@ -35,7 +36,7 @@ effectView :: View -> WithDoc ()
 effectView new = do
   view <- makeNode new
   Just body <- getBody ?doc
-  old <- getElementById ?doc (ident $ ann $ unTree new)
+  old <- maybe (return Nothing) (getElementById ?doc) $ ident $ ann $ unTree new
   maybe (return ()) (removeNode . toNode) old
   appendChild body $ Just view
   return ()
@@ -51,5 +52,6 @@ makeNode (T (ViewInfo id cs _ _ := e)) = case e of
   Atom t  -> el "span" (attrs id cs) =<< mapM textNode [t]
   Node es -> el "div"  (attrs id cs) =<< mapM makeNode (toList es)
 
-attrs :: Text -> [Text] -> [(Text, Text)]
-attrs id classes = [("id", id), ("class", intercalate " " classes)]
+attrs :: Maybe Text -> [Text] -> [(Text, Text)]
+attrs id classes =
+  [("class", intercalate " " classes)] ++ maybe [] (return . ("id",)) id

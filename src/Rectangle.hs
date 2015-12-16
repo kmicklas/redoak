@@ -10,10 +10,10 @@ module Rectangle
   , origin
   ) where
 
-newtype Width = Width Int
+newtype Width = W Int
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
-newtype Height = Height Int
+newtype Height = H Int
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
 newtype X = X Int
