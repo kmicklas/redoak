@@ -40,16 +40,14 @@ applyEdit s f = s { cursor = c'
   where (c', i') = runState (f $ cursor s) $ currentId s
 
 applyFailableEdit :: State -> EditT Maybe Text Word -> State
-applyFailableEdit s f = fromMaybe s $ do
-  (c', i') <- runStateT (f $ cursor s) $ currentId s
-  return $ s { cursor = c'
-             , currentId = i'
-             }
+applyFailableEdit s f = applyEdit s $ maybeEdit f
 
 onEvent :: Event -> State -> State
 
 onEvent (KeyDown ArrowLeft)  s = applyFailableEdit s shiftLeft
 onEvent (KeyDown ArrowRight) s = applyFailableEdit s shiftRight
+onEvent (KeyDown ArrowUp)  s = applyFailableEdit s ascend
+onEvent (KeyDown ArrowDown) s = applyFailableEdit s descend
 
 onEvent (KeyPress 'i') s | mode s == Normal = applyFailableEdit s ascend
 onEvent (KeyPress 'k') s | mode s == Normal = applyFailableEdit s descend
