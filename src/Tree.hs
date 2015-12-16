@@ -36,6 +36,7 @@ module Tree
   , switchBounds
   , startMin
   , endMax
+  , selectAll
   , selectNoneStart
   , selectNoneEnd
   , shiftLeft
@@ -235,6 +236,9 @@ descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
   where isNode (Node _) = True
         isNode _        = False
 
+
+-- * Derived Edits
+
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann) => EditM a ann
 push = insertNode >=> mapEdit (Identity . fromJust) descend
@@ -251,6 +255,9 @@ startMin = localMove $ \ _ (_, end) -> (0, end)
 
 endMax :: IsSequence a => EditT Maybe a ann
 endMax = localMove $ \ size (start, _) -> (start, size)
+
+selectAll :: IsSequence a => EditT Maybe a ann
+selectAll = localMove $ \ size (_, end) -> (0, size)
 
 selectNoneStart :: IsSequence a => EditT Maybe a ann
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
