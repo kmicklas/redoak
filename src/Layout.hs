@@ -116,9 +116,8 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
 
 layoutHomogenous :: Direction -> LayoutDim -> View
 layoutHomogenous dir t@(T (ann@(info, _) := e)) =
-  select (selection info) $ T $ (makeViewInfo dir ann :=) $ case e of
-    Atom a -> Atom a
-    Node ts -> Node $ fmap (layoutHomogenous dir) ts
+  select (selection info)
+    $ T $ makeViewInfo dir ann := second (layoutHomogenous dir) e
 
 select :: Maybe Range -> View -> View
 select Nothing t = t
