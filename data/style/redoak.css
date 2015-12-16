@@ -29,8 +29,13 @@ div.atom-selection {
   flex-direction: column;
 }
 
-.vertical > .content:not(:first-child) {
-  left: 50px;
+.vertical > .content:not(:first-child),
+.vertical > #selection:first-child > .content:not(:first-child),
+.vertical > #selection:not(:first-child) > .content,
+.vertical > .atom-selection:not(:first-child),
+.vertical > #selection:first-child > .atom-selection:not(:first-child),
+.vertical > #selection:not(:first-child) > .atom-selection {
+  margin-left: 50px;
 }
 
 #selection {
