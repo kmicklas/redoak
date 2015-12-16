@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TupleSections #-}
 
 module Layout where
@@ -8,6 +9,7 @@ import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable
 import Data.Sequence
+import Data.Sequences as SS
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import Data.Traversable
@@ -30,6 +32,7 @@ data LayoutInfo
     --, headed :: Bool -- is first child special
     --, group :: Bool  -- is this an element from the original tree
     }
+  deriving (Eq, Ord, Show)
 
 type Layout    = Tree Text LayoutInfo
 type LayoutDim = Tree Text (LayoutInfo, Dimensions)
@@ -57,7 +60,7 @@ makeLayout = layoutWithSelection . findPath True
   where layoutWithSelection :: Tree Text ((Word, Selection), Bool) -> Layout
         layoutWithSelection = second $ \ ((id, sel), onPath) -> LayoutInfo
           { Layout.ident = Just $ pack $ show id
-          , selection = case (onPath, sel) of
+          , Layout.selection = case (onPath, sel) of
               (True, Select r) -> Just r
               _                -> Nothing
           }
@@ -95,19 +98,58 @@ computeFull (T (info := e)) = do
 layoutFull :: Width -> LayoutDim -> View
 layoutFull mw t@(T ((info, (w, h)) := e)) =
   if w <= mw
-  then second (makeViewInfo Horizontal) t
+  then defaultView Horizontal
   else case e of
-    Atom a -> second (makeViewInfo Vertical) t
+    Atom a -> defaultView Vertical
     Node ts ->
       case viewl ts of
-        EmptyL -> second (makeViewInfo Vertical) t
+        EmptyL -> defaultView Vertical
         first :< rest ->
           let views = layoutFull mw first
                    <| fmap (layoutFull (mw - indentWidth)) rest in
           let fullDim = ( maximum $ W 0 <| fmap (fst . dim . ann . unTree) views
                         , sum $ fmap (snd . dim . ann . unTree) views
                         ) in
-          T $ makeViewInfo Vertical (info, fullDim) := Node views
+          sel $ T $ makeViewInfo Vertical (info, fullDim) := Node views
+
+  where sel = select $ selection info
+        defaultView dir = sel $ second (makeViewInfo dir) t
+
+select :: Maybe Range -> View -> View
+select Nothing t = t
+select (Just (start, end)) (T (info := e)) = T $ (info :=) $ case e of
+  Atom a -> Node $
+    [ T $ lInfo := Atom lPart
+    , T $ selInfo := Atom selPart
+    , T $ rInfo := Atom rPart
+    ]
+    where (lPart, selPart, rPart) = split a
+          lInfo = ViewInfo
+            { View.ident = Nothing
+            , classes = []
+            , dim = (W 0, H 0)
+            , pos = (X 0, Y 0)
+            }
+          rInfo = lInfo
+
+  Node ts -> Node $ mconcat [lPart, [T $ selInfo := Node selPart], rPart]
+    where (lPart, selPart, rPart) = split ts
+
+  where front = min start end
+        back  = max start end
+        selInfo = ViewInfo
+          { View.ident = Just "selection"
+          , classes = []
+          , dim = (W 0, H 0)
+          , pos = (X 0, Y 0)
+          }
+        split :: IsSequence s => s -> (s, s, s)
+        split s =
+          ( SS.take (fromIntegral front) s
+          , SS.take (fromIntegral $ back - front) $
+            SS.drop (fromIntegral front) s
+          , SS.drop (fromIntegral back) s
+          )
 
 dirClass :: Direction -> Text
 dirClass Horizontal = "horizontal"
