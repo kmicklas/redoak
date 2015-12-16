@@ -12,7 +12,7 @@ div.content {
 }
 
 span.content, .atom-selection {
-  border: 0.3ex solid grey;
+  /*border: 0.3ex solid grey;*/
 }
 
 div.atom-selection {
