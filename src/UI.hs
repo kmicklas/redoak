@@ -30,12 +30,13 @@ import Tree
 import View
 
 viewState :: Editor -> View
-viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
+viewState s = defaultLayout "editor" [] $ Node [contentView, statusView, debugView]
   where contentView = defaultLayout "content" [] $ Node [treeView]
         treeView = runIdentity $ layout $ cursor s
         statusView = defaultLayout "status" [] $ Node [pathView, modeView]
         pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ path $ cursor s
         modeView = defaultLayout "mode" [] $ Atom $ pack $ show $ mode s
+        debugView = defaultLayout "debug" [] $ Atom $ pack $ show s
         pathString (is, (start, end)) =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]

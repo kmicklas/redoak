@@ -87,7 +87,7 @@ div.atom-selection {
 #status {
   display: block;
   position: fixed;
-  bottom: 0px;
+  bottom: 5rem;
   left: 0px;
   right: 0px;
   background: grey;
@@ -97,4 +97,12 @@ div.atom-selection {
 #mode {
   position: fixed;
   right: 0px;
+}
+
+#debug {
+  position: fixed;
+  bottom: 0px;
+  height: 5rem;
+  width: 100%;
+  overflow: scroll;
 }
