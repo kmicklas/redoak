@@ -116,8 +116,8 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
 
 select :: Maybe Range -> View -> View
 select Nothing t = t
-select (Just (start, end)) (T (info := e)) = T $ (info :=) $ case e of
-  Atom a -> Node $
+select (Just (start, end)) (T (info := e)) = T $ uncurry (:=) $ case e of
+  Atom a -> (info',) $ Node $
     [ T $ lInfo := Atom lPart
     , T $ selInfo := Atom selPart
     , T $ rInfo := Atom rPart
@@ -130,8 +130,10 @@ select (Just (start, end)) (T (info := e)) = T $ (info :=) $ case e of
             , pos = (X 0, Y 0)
             }
           rInfo = lInfo
+          info' = info { classes = ["atom-selection"] }
 
-  Node ts -> Node $ mconcat [lPart, [T $ selInfo := Node selPart], rPart]
+  Node ts ->
+    (info, Node $ mconcat [lPart, [T $ selInfo := Node selPart], rPart])
     where (lPart, selPart, rPart) = split ts
 
   where front = min start end
