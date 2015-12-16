@@ -115,7 +115,7 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
         defaultView dir = layoutHomogenous dir t
 
 layoutHomogenous :: Direction -> LayoutDim -> View
-layoutHomogenous dir t@(T (ann@(info, _) := e)) =
+layoutHomogenous dir (T (ann@(info, _) := e)) =
   select (selection info)
     $ T $ makeViewInfo dir ann := second (layoutHomogenous dir) e
 
