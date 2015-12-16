@@ -20,9 +20,9 @@ import Tree
 import View
 
 -- MAGIC CONSTANTS:
-indentWidth = W 50
-maxInlineHeight = H 50
-inlinePad = W 20
+indentWidth = W 8
+maxInlineHeight = H 1
+inlinePad = W 0
 
 data LayoutInfo
   = LayoutInfo
@@ -47,8 +47,8 @@ class (Monad r) => Rules r where
   availableWidth :: r Width
 
 instance Rules Identity where
-  inlineText t = return (W $ T.length t * 20, maxInlineHeight)
-  availableWidth = return $ W 500
+  inlineText t = return (W $ T.length t, maxInlineHeight)
+  availableWidth = return $ W 80
 
 layout :: Rules r => Cursor Text Word -> r View
 layout c = do
