@@ -1,6 +1,7 @@
 .content, .atom-selection {
   margin: 0.2ex;
   padding: 1px;
+  min-height: 1rem;
 }
 
 .content {
@@ -11,17 +12,15 @@ div.content {
   border: 0.3ex solid red;
 }
 
-span.content, .atom-selection {
-  /*border: 0.3ex solid grey;*/
-}
-
 div.atom-selection {
   display: inline;
+  background: beige;
 }
 
 .horizontal {
   display: flex;
   flex-direction: row;
+  align-items: center;
 }
 
 .vertical {
@@ -42,10 +41,12 @@ div.atom-selection {
   display: inherit;
   flex-direction: inherit;
   background: aquamarine;
+  min-height: 1rem;
 }
 
 .atom-selection > #selection {
   display: inline;
+  min-height: 1rem;
 }
 
 .horizontal > #selection.right, .atom-selection > #selection.right {
