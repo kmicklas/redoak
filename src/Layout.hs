@@ -112,7 +112,13 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
           sel $ T $ makeViewInfo Vertical (info, fullDim) := Node views
 
   where sel = select $ selection info
-        defaultView dir = sel $ second (makeViewInfo dir) t
+        defaultView dir = layoutHomogenous dir t
+
+layoutHomogenous :: Direction -> LayoutDim -> View
+layoutHomogenous dir t@(T (ann@(info, _) := e)) =
+  select (selection info) $ T $ (makeViewInfo dir ann :=) $ case e of
+    Atom a -> Atom a
+    Node ts -> Node $ fmap (layoutHomogenous dir) ts
 
 select :: Maybe Range -> View -> View
 select Nothing t = t
