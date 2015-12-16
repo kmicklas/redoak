@@ -23,6 +23,9 @@ module Tree
   , getFresh
   , path
 
+  , elimIsSequence
+  , mapIsSequence
+
   , change
   , insertNode
   , ascend
@@ -134,6 +137,15 @@ elimIsSequence :: forall seq x ret
 elimIsSequence f = \case
   Atom a -> f a
   Node s -> f s
+
+mapIsSequence :: forall seq ann
+              .  IsSequence seq
+              => (forall s. IsSequence s => s -> s)
+              -> Element seq ann
+              -> Element seq ann
+mapIsSequence f = \case
+  Atom a -> Atom $ f a
+  Node s -> Node $ f s
 
 localEdit :: Monad m => EditT m a ann -> EditT m a ann
 localEdit f t@(T ((a, sel) := e)) =
