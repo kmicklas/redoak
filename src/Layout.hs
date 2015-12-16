@@ -146,7 +146,7 @@ select (Just (start, end)) (T (info := e)) = T $ uncurry (:=) $ case e of
         back  = max start end
         selInfo = ViewInfo
           { View.ident = Just "selection"
-          , classes = []
+          , classes = [if start <= end then "right" else "left"]
           , dim = (W 0, H 0)
           , pos = (X 0, Y 0)
           }

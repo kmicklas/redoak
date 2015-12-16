@@ -32,6 +32,26 @@ span.content {
   background: aquamarine;
 }
 
+.atom-selection > #selection {
+  display: inline;
+}
+
+.horizontal > #selection.right, .atom-selection > #selection.right {
+  border-right: 0.3ex solid blue;
+}
+
+.horizontal > #selection.left, .atom-selection > #selection.left {
+  border-left: 0.3ex solid blue;
+}
+
+.vertical > #selection.right {
+  border-bottom: 0.3ex solid blue;
+}
+
+.vertical > #selection.left {
+  border-top: 0.3ex solid blue;
+}
+
 #status {
   display: block;
   position: fixed;
