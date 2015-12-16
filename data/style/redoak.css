@@ -1,15 +1,22 @@
-.content {
-  white-space: pre-wrap;
+.content, .atom-selection {
   margin: 0.2ex;
   padding: 1px;
+}
+
+.content {
+  white-space: pre-wrap;
 }
 
 div.content {
   border: 0.3ex solid red;
 }
 
-span.content {
+span.content, .atom-selection {
   border: 0.3ex solid grey;
+}
+
+div.atom-selection {
+  display: inline;
 }
 
 .horizontal {
