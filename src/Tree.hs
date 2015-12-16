@@ -26,6 +26,7 @@ module Tree
   , elimIsSequence
   , mapIsSequence
 
+  , delete
   , change
   , insertNode
   , ascend
@@ -45,21 +46,21 @@ module Tree
   , moveRight
   ) where
 
-import Control.Monad
-import Control.Monad.Trans.State.Lazy
+import           Control.Monad
+import           Control.Monad.Trans.State.Lazy
 
-import Data.Bifunctor
-import Data.Bifunctor.TH
-import Data.Foldable
-import Data.Functor.Identity
-import Data.Monoid
-import Data.Traversable
-import Data.MonoTraversable hiding (Element)
-import Data.List      as L
-import Data.Maybe     as M
-import Data.Sequence  as S
-import Data.Sequences as SS
-import Data.Word
+import           Data.Bifunctor
+import           Data.Bifunctor.TH
+import           Data.Foldable
+import           Data.Functor.Identity
+import           Data.Monoid
+import           Data.Traversable
+import           Data.MonoTraversable hiding (Element)
+import qualified Data.List as L
+import           Data.Maybe as M
+import           Data.Sequence as S
+import           Data.Sequences as SS
+import           Data.Word
 
 data Ann a ann
   = (:=) { ann :: ann , val :: a }
@@ -164,6 +165,18 @@ localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
   in if min start' end' < 0 || max start' end' > len
   then mzero
   else return $ T $ (a, Select (start', end')) := e
+
+-- TODO: overlap between delete and change
+
+delete :: forall ann atom
+      .  Fresh ann
+      => IsSequence atom
+      => EditM atom ann
+delete = localEdit $ \ (T ((a, Select (start, end)) := sel)) -> let
+    f seq = lpart <> rpart
+      where lpart = SS.take (fromIntegral $ min start end) seq
+            rpart = SS.drop (fromIntegral $ max start end) seq
+  in return $ T $ ((a, Select (start, start)) :=) $ mapIsSequence f sel
 
 change :: forall ann atom
        .  Fresh ann

@@ -58,7 +58,7 @@ onEvent (KeyPress 'L') s | mode s == Normal = applyFailableEdit s moveRight
 
 onEvent (KeyPress 'a') s | mode s == Normal = applyFailableEdit s selectAll
 onEvent (KeyPress 's') s | mode s == Normal = applyFailableEdit s switchBounds
-onEvent (KeyPress 'd') s | mode s == Normal = applyEdit s $ change $ Node []
+onEvent (KeyPress 'd') s | mode s == Normal = applyEdit s $ delete
 onEvent (KeyPress 'f') s | mode s == Normal = applyFailableEdit s selectNoneEnd
 
 onEvent (KeyDown Tab)   s | mode s == Insert = applyEdit s push
