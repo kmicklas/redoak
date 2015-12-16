@@ -3,10 +3,13 @@
 
 module Layout where
 
+import Control.Monad
+import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable
 import Data.Sequence
 import Data.Text (Text, pack)
+import qualified Data.Text as T
 import Data.Traversable
 import Prelude   hiding (foldr)
 
@@ -38,7 +41,16 @@ data Direction
 
 class (Monad r) => Rules r where
   inlineText :: Text -> r Dimensions
-  layoutText :: Width -> Text -> r Dimensions
+  availableWidth :: r Width
+
+instance Rules Identity where
+  inlineText t = return (W $ T.length t * 20, maxInlineHeight)
+  availableWidth = return $ W 500
+
+layout :: Rules r => Cursor Text Word -> r View
+layout c = do
+  w <- availableWidth
+  layoutFull w <$> computeFull (makeLayout c)
 
 makeLayout :: Cursor Text Word -> Layout
 makeLayout = layoutWithSelection . findPath True
@@ -71,8 +83,8 @@ computeFull (T (info := e)) = do
       Node ts -> do
         fulls <- mapM computeFull ts
         let fullDims = fmap (snd . ann . unTree) fulls
-        let maxWidth  = maximum $ fmap fst fullDims
-        let maxHeight = maximum $ fmap snd fullDims
+        let maxWidth  = maximum $ W 0 <| fmap fst fullDims
+        let maxHeight = maximum $ H 0 <| fmap snd fullDims
         let dim = if maxHeight <= maxInlineHeight
                   then (sum $ fmap ((+ inlinePad) . fst) fullDims, maxHeight)
                   else (maxWidth, sum $ fmap snd fullDims)
@@ -92,10 +104,10 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
         first :< rest ->
           let views = layoutFull mw first
                    <| fmap (layoutFull (mw - indentWidth)) rest in
-          let fullDim = ( maximum $ fmap (fst . dim . ann . unTree) views
+          let fullDim = ( maximum $ W 0 <| fmap (fst . dim . ann . unTree) views
                         , sum $ fmap (snd . dim . ann . unTree) views
                         ) in
-          T $ makeViewInfo Horizontal (info, fullDim) := Node views
+          T $ makeViewInfo Vertical (info, fullDim) := Node views
 
 dirClass :: Direction -> Text
 dirClass Horizontal = "horizontal"

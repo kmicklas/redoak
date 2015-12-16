@@ -11,6 +11,7 @@ import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
+import Control.Monad.Identity
 import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.List
@@ -23,6 +24,7 @@ import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharC
 import Dom
 import Editor
 import Event
+import Layout
 import Rectangle
 import Tree
 import View
@@ -30,7 +32,7 @@ import View
 viewState :: State -> View
 viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
   where contentView = defaultLayout "content" [] $ Node [treeView]
-        treeView = viewCursor $ cursor s
+        treeView = runIdentity $ layout $ cursor s
         statusView = defaultLayout "status" [] $ Node [pathView, modeView]
         pathView = defaultLayout "path" [] $ Atom $ pack $ pathString $ path $ cursor s
         modeView = defaultLayout "mode" [] $ Atom $ pack $ show $ mode s

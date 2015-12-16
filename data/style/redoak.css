@@ -12,6 +12,16 @@ div.content {
   border: 0.3ex solid red;
 }
 
+.horizontal {
+  display: flex;
+  flex-direction: row;
+}
+
+.vertical {
+  display: flex;
+  flex-direction: column;
+}
+
 #left-of-selection, #selection, #right-of-selection {
   display: inline;
 }
