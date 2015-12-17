@@ -42,6 +42,8 @@ module Tree
   , Tree.reverse
   , ascend
   , descend
+  , wrap
+  , Tree.unwrap
   , push
   , pop
 
@@ -325,6 +327,18 @@ reverse :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
 reverse = local $ getSelection >>= (change . mapIsSequence SS.reverse)
 
 -- * Derived Edits
+
+wrap :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
+wrap = do
+  sel <- getSelection
+  push
+  change sel
+
+unwrap :: (IsSequence a, Fresh ann, Monad m) => MaybeEditT (StateT ann m) a ann ()
+unwrap = do
+  sel <- getSelection
+  ascend
+  justEdit $ change sel
 
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()

@@ -108,6 +108,9 @@ onEventNormal = \case
   KeyPress 'n' -> apply insertNode
   KeyPress 'r' -> apply Tree.reverse
 
+  KeyPress 'w' -> apply wrap
+  KeyPress 'e' -> apply $ tryEdit unwrap
+
   KeyPress 'h' -> gotoMode Insert
 
   _ -> return ()
