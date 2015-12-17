@@ -105,6 +105,7 @@ onEventNormal = \case
   KeyPress 'x' -> copy >> apply delete
   KeyPress 'v' -> paste
 
+  KeyPress 'n' -> apply insertNode
   KeyPress 'r' -> apply Tree.reverse
 
   KeyPress ' ' -> gotoMode Insert
