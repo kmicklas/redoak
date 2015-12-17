@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TupleSections #-}
 
 module Editor
   ( Editor(..)
@@ -10,9 +11,10 @@ import Control.Monad
 import Control.Monad.Identity
 import Control.Monad.State
 
+import Data.Bifunctor
 import Data.Maybe
 import Data.Sequence
-import Data.Text
+import Data.Text hiding (copy)
 
 import Event
 import Tree
@@ -22,6 +24,7 @@ data Editor
     { mode :: !Mode
     , currentId :: !Word
     , cursor :: Cursor Text Word
+    , clipboard :: Trunk Text Word
     }
   deriving (Eq, Ord, Show)
 
@@ -31,13 +34,19 @@ data Mode
   deriving (Eq, Ord, Show)
 
 initState :: Editor
-initState = Editor Normal 1 $ T $ (0, Select (0, 0)) := Node []
+initState = Editor
+  { mode = Normal
+  , currentId = 1
+  , cursor = T $ (0, Select (0, 0)) := Node []
+  , clipboard = Node []
+  }
 
-apply :: EditT (State Word) Text Word () -> State Editor ()
+apply :: EditT (State Word) Text Word a -> State Editor a
 apply e = do
   s <- get
-  let (c', id') = runState (execStateT e $ cursor s) $ currentId s
+  let ((r, c'), id') = runState (runStateT e $ cursor s) $ currentId s
   put $ s { currentId = id', cursor = c' }
+  return r
 
 inMode :: Mode -> State Editor () -> State Editor ()
 inMode m a = do
@@ -46,6 +55,15 @@ inMode m a = do
 
 gotoMode :: Mode -> State Editor ()
 gotoMode m = modify $ \ s -> s { mode = m }
+
+copy :: State Editor ()
+copy = do
+  s <- get
+  sel <- apply getSelection
+  put $ s { clipboard = sel }
+
+paste :: State Editor ()
+paste = get >>= (apply . change . second initCursor . clipboard)
 
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
@@ -75,12 +93,16 @@ onEventNormal = \case
   KeyPress 'J' -> apply $ tryEdit moveLeft
   KeyPress 'L' -> apply $ tryEdit moveRight
 
-  KeyPress 'a'  -> apply $ tryEdit selectAll
-  KeyPress 's'  -> apply $ tryEdit switchBounds
-  KeyPress 'd'  -> apply delete
-  KeyPress 'f'  -> apply $ tryEdit selectNoneEnd
+  KeyPress 'a' -> apply $ tryEdit selectAll
+  KeyPress 's' -> apply $ tryEdit switchBounds
+  KeyPress 'd' -> apply delete
+  KeyPress 'f' -> apply $ tryEdit selectNoneEnd
 
-  KeyPress ' '  -> gotoMode Insert
+  KeyPress 'c' -> copy
+  KeyPress 'x' -> copy >> apply delete
+  KeyPress 'v' -> paste
+
+  KeyPress ' ' -> gotoMode Insert
 
   _ -> return ()
 

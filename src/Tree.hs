@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module Tree
   ( Tree(..)
@@ -25,6 +26,10 @@ module Tree
 
   , elimIsSequence
   , mapIsSequence
+
+  , unCursor
+  , initCursor
+  , getSelection
 
   , delete
   , change
@@ -153,25 +158,43 @@ mapIsSequence f = \case
   Atom a -> Atom $ f a
   Node s -> Node $ f s
 
-localEdit :: Monad m => EditT m a ann r -> EditT m a ann r
-localEdit f = do
+local :: Monad m => EditT m a ann r -> EditT m a ann r
+local f = do
   t@(T ((a, sel) := e)) <- get
   case (sel, e) of
     (Descend _, Atom _)  -> error "path is too deep"
     (Descend i, Node ts) -> do
-      (r, child) <- lift $ runStateT (localEdit f) $ S.index ts i
+      (r, child) <- lift $ runStateT (local f) $ S.index ts i
       put $ T $ (a, sel) := Node (S.update i child ts)
       return r
     (Select range, _) -> f
 
 localMove :: (IsSequence a, Monad m) => (Int -> Range -> Range) -> MaybeEditT m a ann ()
-localMove f = localEdit $ do
+localMove f = local $ do
   T ((a, Select r) := e) <- get
   let len = elimIsSequence olength e
       (start', end') = f len r
   if min start' end' < 0 || max start' end' > len
   then mzero
   else put $ T $ (a, Select (start', end')) := e
+
+unCursor :: Cursor a ann -> Tree a ann
+unCursor = second fst
+
+initCursor :: Tree a ann -> Cursor a ann
+initCursor = second (, Select (0, 0))
+
+getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a ann)
+getSelection = local $ do
+  T ((_, Select r) := e) <- get
+  case e of
+    Atom a -> return $ Atom $ getRange r a
+    Node ts -> return $ Node $ fmap unCursor $ getRange r ts
+
+  where getRange :: IsSequence s => Range -> s -> s
+        getRange (start, end) =
+          SS.take (fromIntegral $ abs $ start - end) .
+          SS.drop (fromIntegral $ min start end)
 
 -- TODO: overlap between delete and change
 
@@ -180,7 +203,7 @@ delete :: forall m ann atom
       => IsSequence atom
       => Monad m
       => EditT (StateT ann m) atom ann ()
-delete = localEdit $ do
+delete = local $ do
   T ((a, Select (start, end)) := sel) <- get
   let f seq = lpart <> rpart
         where lpart = SS.take (fromIntegral $ min start end) seq
@@ -193,7 +216,7 @@ change :: forall m ann atom
        => Monad m
        => Trunk atom (ann, Selection)
        -> EditT (StateT ann m) atom ann ()
-change new = localEdit $ do
+change new = local $ do
     T ((a, Select (start, end)) := old) <- get
 
     let insert :: forall seq. IsSequence seq
@@ -257,7 +280,7 @@ ascend = (get >>=) $ \case
 
 -- | Descend into selection, if only one element is selected
 descend :: Monad m => EditT (MaybeT m) a ann ()
-descend = localEdit $ do
+descend = local $ do
   T ((a, Select (start, end)) := e) <- get
   if abs (start - end) == 1 && isNode e
   then put $ T $ (a, Descend $ min start end) := e
