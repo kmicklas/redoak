@@ -246,10 +246,12 @@ delete :: forall m ann atom
       => EditT (StateT ann m) atom ann ()
 delete = local $ do
   (a, Select (start, end)) :< sel <- get
+  let front = min start end
+  let back  = max start end
   let f seq = lpart <> rpart
-        where lpart = SS.take (fromIntegral $ min start end) seq
-              rpart = SS.drop (fromIntegral $ max start end) seq
-  put $ ((a, Select (start, start)) :<) $ mapIsSequence f sel
+        where lpart = SS.take (fromIntegral front) seq
+              rpart = SS.drop (fromIntegral back)  seq
+  put $ ((a, Select (front, front)) :<) $ mapIsSequence f sel
 
 change :: forall m ann atom
        .  Fresh ann
