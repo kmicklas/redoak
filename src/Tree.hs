@@ -14,12 +14,12 @@ module Tree
   , Cursor
   , Fresh
 
-  , Edit
   , EditT
-  , EditM
-  , mapEdit
+  , Edit
+  , MaybeEditT
+  , MaybeEdit
   , justEdit
-  , maybeEdit
+  , tryEdit
   , getFresh
   , path
 
@@ -47,7 +47,9 @@ module Tree
   ) where
 
 import           Control.Monad
-import           Control.Monad.Trans.State.Lazy
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.State
+import           Control.Monad.Trans.Maybe
 
 import           Data.Bifunctor
 import           Data.Bifunctor.TH
@@ -97,9 +99,11 @@ type Path = ([Int], Range)
 
 type Cursor a ann = Tree a (ann, Selection)
 
-type Edit a ann = Cursor a ann -> Cursor a ann
-type EditT m a ann = Cursor a ann -> StateT ann m (Cursor a ann)
-type EditM a ann = EditT Identity a ann
+type EditT m a ann r = StateT (Cursor a ann) m r
+type Edit a ann r = EditT Identity a ann r
+
+type MaybeEditT m a ann r = EditT (MaybeT m) a ann r
+type MaybeEdit a ann r = MaybeEditT Identity a ann r
 
 class Fresh a where
   fresh :: a -> a
@@ -107,25 +111,25 @@ class Fresh a where
 instance Fresh Word where
   fresh = (+ 1)
 
-mapEdit :: (m (Cursor a ann, ann) -> n (Cursor a ann, ann))
-         -> EditT m a ann -> EditT n a ann
-mapEdit = fmap . mapStateT
-
-justEdit :: EditM a ann -> EditT Maybe a ann
-justEdit = mapEdit $ Just . runIdentity
-
-maybeEdit :: EditT Maybe a ann -> EditM a ann
-maybeEdit e c = do
-  ann <- get
-  case runStateT (e c) ann of
-    Nothing -> return c
-    Just (c', ann') -> put ann' >> return c'
-
-getFresh :: Fresh i => State i i
+getFresh :: (Fresh a, Monad m) => StateT a m a
 getFresh = do
   i <- get
   put $ fresh i
   return i
+
+justEdit :: Monad m => EditT m a ann r -> MaybeEditT m a ann r
+justEdit = mapStateT (MaybeT . fmap Just)
+
+tryEdit :: Monad m => MaybeEditT m a ann () -> EditT m a ann ()
+tryEdit e = do
+  c <- get
+  r <- lift $ runMaybeT $ execStateT e c
+  case r of
+    Nothing -> return ()
+    Just c' -> put c'
+
+assumeMaybeEdit :: Monad m => EditT (MaybeT m) a ann r -> EditT m a ann r
+assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
 
 path :: Cursor a ann -> Path
 path (T ((_, Descend i) := Node cs)) = first (i :) $ path $ S.index cs i
@@ -149,143 +153,154 @@ mapIsSequence f = \case
   Atom a -> Atom $ f a
   Node s -> Node $ f s
 
-localEdit :: Monad m => EditT m a ann -> EditT m a ann
-localEdit f t@(T ((a, sel) := e)) =
+localEdit :: Monad m => EditT m a ann r -> EditT m a ann r
+localEdit f = do
+  t@(T ((a, sel) := e)) <- get
   case (sel, e) of
     (Descend _, Atom _)  -> error "path is too deep"
     (Descend i, Node ts) -> do
-      child <- localEdit f $ S.index ts i
-      return $ T $ (a, sel) := Node (S.update i child ts)
-    (Select range, _) -> f t
+      (r, child) <- lift $ runStateT (localEdit f) $ S.index ts i
+      put $ T $ (a, sel) := Node (S.update i child ts)
+      return r
+    (Select range, _) -> f
 
-localMove :: IsSequence a => (Int -> Range -> Range) -> EditT Maybe a ann
-localMove f = localEdit $ \ (T ((a, Select r) := e)) ->
+localMove :: (IsSequence a, Monad m) => (Int -> Range -> Range) -> MaybeEditT m a ann ()
+localMove f = localEdit $ do
+  T ((a, Select r) := e) <- get
   let len = elimIsSequence olength e
       (start', end') = f len r
-  in if min start' end' < 0 || max start' end' > len
+  if min start' end' < 0 || max start' end' > len
   then mzero
-  else return $ T $ (a, Select (start', end')) := e
+  else put $ T $ (a, Select (start', end')) := e
 
 -- TODO: overlap between delete and change
 
-delete :: forall ann atom
+delete :: forall m ann atom
       .  Fresh ann
       => IsSequence atom
-      => EditM atom ann
-delete = localEdit $ \ (T ((a, Select (start, end)) := sel)) -> let
-    f seq = lpart <> rpart
-      where lpart = SS.take (fromIntegral $ min start end) seq
-            rpart = SS.drop (fromIntegral $ max start end) seq
-  in return $ T $ ((a, Select (start, start)) :=) $ mapIsSequence f sel
+      => Monad m
+      => EditT (StateT ann m) atom ann ()
+delete = localEdit $ do
+  T ((a, Select (start, end)) := sel) <- get
+  let f seq = lpart <> rpart
+        where lpart = SS.take (fromIntegral $ min start end) seq
+              rpart = SS.drop (fromIntegral $ max start end) seq
+  put $ T $ ((a, Select (start, start)) :=) $ mapIsSequence f sel
 
-change :: forall ann atom
+change :: forall m ann atom
        .  Fresh ann
        => IsSequence atom
+       => Monad m
        => Trunk atom (ann, Selection)
-       -> EditM atom ann
-change new = localEdit $ \ (T ((a, Select (start, end)) := old)) -> let
-    insert :: forall seq. IsSequence seq
-      => seq
-      -> seq
-      -> (seq -> Trunk atom (ann, Selection))
-      -> StateT ann Identity (Cursor atom ann)
-    insert old new inj = return $ T $ (a, Select $ adjustRange new) := inj seq'
-      where seq' = mconcat [lPart, new, rPart]
-            (lPart, rPart) = split old
+       -> EditT (StateT ann m) atom ann ()
+change new = localEdit $ do
+    T ((a, Select (start, end)) := old) <- get
 
-    split :: forall seq. IsSequence seq => seq -> (seq, seq)
-    split old = ( SS.take (fromIntegral $ min start end) old
-                , SS.drop (fromIntegral $ max start end) old
-                )
+    let insert :: forall seq. IsSequence seq
+               => seq
+               -> seq
+               -> (seq -> Trunk atom (ann, Selection))
+               -> EditT (StateT ann m) atom ann ()
+        insert old new inj =
+          put $ T $ (a, Select $ adjustRange new) := inj seq'
+          where seq' = mconcat [lPart, new, rPart]
+                (lPart, rPart) = split old
 
-    adjustRange :: forall seq. IsSequence seq => seq -> Range
-    adjustRange new = if start <= end
-            then (start, start + olength new)
-            else (end + olength new, end)
+        split :: forall seq. IsSequence seq => seq -> (seq, seq)
+        split old = ( SS.take (fromIntegral $ min start end) old
+                    , SS.drop (fromIntegral $ max start end) old
+                    )
 
-  in case (old, new) of
-    -- homogenous
-    (Atom o, Atom n) -> insert o n Atom
-    (Node o, Node n) -> insert o n Node
-    -- heterogenous
-    (Node o, Atom _) -> do
-      id <- getFresh
-      insert o [T $ (id, Select (0, 0)) := new] Node
-    (Atom o, Node n) -> do
-      lId <- getFresh
-      rId <- getFresh
-      let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
-      return $ T $ (a, Select (start', end')) := Node cs
-        where (lPart, rPart) = split o
-              (start', end') =
-                if start <= end
-                then (1, 1 + S.length n)
-                else (1 + S.length n, 1)
+        adjustRange :: forall seq. IsSequence seq => seq -> Range
+        adjustRange new = if start <= end
+                then (start, start + olength new)
+                else (end + olength new, end)
+
+    case (old, new) of
+      -- homogenous
+      (Atom o, Atom n) -> insert o n Atom
+      (Node o, Node n) -> insert o n Node
+      -- heterogenous
+      (Node o, Atom _) -> do
+        id <- lift getFresh
+        insert o [T $ (id, Select (0, 0)) := new] Node
+      (Atom o, Node n) -> do
+        lId <- lift getFresh
+        rId <- lift getFresh
+        let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
+        put $ T $ (a, Select (start', end')) := Node cs
+          where (lPart, rPart) = split o
+                (start', end') =
+                  if start <= end
+                  then (1, 1 + S.length n)
+                  else (1 + S.length n, 1)
 
     where init ann = (ann, Select (0, 0))
 
 -- | Insert a new empty node at the cursor
-insertNode :: (IsSequence a, Fresh ann) => EditM a ann
-insertNode c = do
-  id <- getFresh
-  change (Node [T $ (id, Select (0, 0)) := Node []]) c
+insertNode :: (IsSequence a, Fresh ann, Monad m)
+           => EditT (StateT ann m) a ann ()
+insertNode = do
+  id <- lift getFresh
+  change (Node [T $ (id, Select (0, 0)) := Node []])
 
 -- | Select the node which we're currently inside
-ascend :: EditT Maybe a ann
-ascend (T ((a, Select _) := _)) = mzero
-ascend (T ((a, Descend i) := Node cs)) =
-  case S.index cs i of
-    T ((a, Select _) := _) -> return $ T $ (a, Select (i, i + 1)) := Node cs
-    t@(T ((a, Descend _) := _)) -> do
-      sub <- ascend t
-      return $ T $ (a, Descend i) := Node (update i sub cs)
+ascend :: Monad m => MaybeEditT m a ann ()
+ascend = (get >>=) $ \case
+  T ((a, Select _) := _) -> mzero
+  T ((a, Descend i) := Node cs) ->
+    case S.index cs i of
+      T ((a, Select _) := _) -> put $ T $ (a, Select (i, i + 1)) := Node cs
+      t@(T ((a, Descend _) := _)) -> do
+        sub <- lift $ execStateT ascend t
+        put $ T $ (a, Descend i) := Node (update i sub cs)
 
 -- | Descend into selection, if only one element is selected
-descend :: EditT Maybe a ann
-descend = localEdit $ \ (T ((a, Select (start, end)) := e)) ->
+descend :: Monad m => EditT (MaybeT m) a ann ()
+descend = localEdit $ do
+  T ((a, Select (start, end)) := e) <- get
   if abs (start - end) == 1 && isNode e
-  then return $ T $ (a, Descend $ min start end) := e
+  then put $ T $ (a, Descend $ min start end) := e
   else mzero
   where isNode (Node _) = True
         isNode _        = False
 
-
 -- * Derived Edits
 
 -- | Create new node, edit at begining of it
-push :: (IsSequence a, Fresh ann) => EditM a ann
-push = insertNode >=> mapEdit (Identity . fromJust) descend
+push :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
+push = insertNode >> assumeMaybeEdit descend
 
 -- | Go back to editing parent, right of current position
-pop :: IsSequence a => EditT Maybe a ann
-pop = ascend >=> selectNoneEnd
+pop :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
+pop = ascend >> selectNoneEnd
 
-switchBounds :: IsSequence a => EditT Maybe a ann
+switchBounds :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 switchBounds = localMove $ \ _ (start, end) -> (end, start)
 
-startMin :: IsSequence a => EditT Maybe a ann
+startMin :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 startMin = localMove $ \ _ (_, end) -> (0, end)
 
-endMax :: IsSequence a => EditT Maybe a ann
+endMax :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 endMax = localMove $ \ size (start, _) -> (start, size)
 
-selectAll :: IsSequence a => EditT Maybe a ann
+selectAll :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 selectAll = localMove $ \ size (_, end) -> (0, size)
 
-selectNoneStart :: IsSequence a => EditT Maybe a ann
+selectNoneStart :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: IsSequence a => EditT Maybe a ann
+selectNoneEnd :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: IsSequence a => EditT Maybe a ann
+shiftLeft :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
 
-shiftRight :: IsSequence a => EditT Maybe a ann
+shiftRight :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
 
-moveLeft :: IsSequence a => EditT Maybe a ann
+moveLeft :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 moveLeft = localMove $ \ _ (start, end) -> (start, end - 1)
 
-moveRight :: IsSequence a => EditT Maybe a ann
+moveRight :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 moveRight = localMove $ \ _ (start, end) -> (start, end + 1)

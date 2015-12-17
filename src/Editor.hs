@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedLists #-}
 
 module Editor
-  ( State(..)
+  ( Editor(..)
   , initState
-  , onEvent
+  , handleEvent
   ) where
 
 import Control.Monad
 import Control.Monad.Identity
-import Control.Monad.State.Lazy hiding (State)
+import Control.Monad.State
 
 import Data.Maybe
 import Data.Sequence
@@ -17,8 +17,8 @@ import Data.Text
 import Event
 import Tree
 
-data State
-  = State
+data Editor
+  = Editor
     { mode :: !Mode
     , currentId :: !Word
     , cursor :: Cursor Text Word
@@ -30,46 +30,69 @@ data Mode
   | Insert
   deriving (Eq, Ord, Show)
 
-initState :: State
-initState = State Normal 1 $ T $ (0, Select (0, 0)) := Node []
+initState :: Editor
+initState = Editor Normal 1 $ T $ (0, Select (0, 0)) := Node []
 
-applyEdit :: State -> EditM Text Word -> State
-applyEdit s f = s { cursor = c'
-                  , currentId = i'
-                  }
-  where (c', i') = runState (f $ cursor s) $ currentId s
+apply :: EditT (State Word) Text Word () -> State Editor ()
+apply e = do
+  s <- get
+  let (c', id') = runState (execStateT e $ cursor s) $ currentId s
+  put $ s { currentId = id', cursor = c' }
 
-applyFailableEdit :: State -> EditT Maybe Text Word -> State
-applyFailableEdit s f = applyEdit s $ maybeEdit f
+inMode :: Mode -> State Editor () -> State Editor ()
+inMode m a = do
+  s <- get
+  when (mode s == m) a
 
-onEvent :: Event -> State -> State
+gotoMode :: Mode -> State Editor ()
+gotoMode m = modify $ \ s -> s { mode = m }
 
-onEvent (KeyDown ArrowLeft)  s = applyFailableEdit s shiftLeft
-onEvent (KeyDown ArrowRight) s = applyFailableEdit s shiftRight
-onEvent (KeyDown ArrowUp)    s = applyFailableEdit s ascend
-onEvent (KeyDown ArrowDown)  s = applyFailableEdit s descend
+handleEvent :: Event -> Editor -> Editor
+handleEvent e = execState $ do
+  onEvent e
+  inMode Normal $ onEventNormal e
+  inMode Insert $ onEventInsert e
 
-onEvent (KeyPress 'i') s | mode s == Normal = applyFailableEdit s ascend
-onEvent (KeyPress 'k') s | mode s == Normal = applyFailableEdit s descend
-onEvent (KeyPress 'j') s | mode s == Normal = applyFailableEdit s shiftLeft
-onEvent (KeyPress 'l') s | mode s == Normal = applyFailableEdit s shiftRight
-onEvent (KeyPress 'J') s | mode s == Normal = applyFailableEdit s moveLeft
-onEvent (KeyPress 'L') s | mode s == Normal = applyFailableEdit s moveRight
+onEvent :: Event -> State Editor ()
+onEvent = \case
 
-onEvent (KeyPress 'a') s | mode s == Normal = applyFailableEdit s selectAll
-onEvent (KeyPress 's') s | mode s == Normal = applyFailableEdit s switchBounds
-onEvent (KeyPress 'd') s | mode s == Normal = applyEdit s $ delete
-onEvent (KeyPress 'f') s | mode s == Normal = applyFailableEdit s selectNoneEnd
+  KeyDown Tab   -> apply push
 
-onEvent (KeyDown Tab)   s | mode s == Insert = applyEdit s push
-onEvent (KeyPress ' ')  s | mode s == Insert = applyFailableEdit s pop
+  KeyDown ArrowLeft  -> apply $ tryEdit shiftLeft
+  KeyDown ArrowRight -> apply $ tryEdit shiftRight
+  KeyDown ArrowUp    -> apply $ tryEdit ascend
+  KeyDown ArrowDown  -> apply $ tryEdit descend
 
-onEvent (KeyPress ' ')  s | mode s == Normal = s { mode = Insert }
-onEvent (KeyDown Enter) s | mode s == Insert = s { mode = Normal }
+  _ -> return ()
 
-onEvent (KeyPress c) s | mode s == Insert =
-  applyFailableEdit s $ justEdit (change $ Atom [c])
-                    >=> justEdit (maybeEdit $ descend >=> endMax)
-                    >=> selectNoneEnd
+onEventNormal :: Event -> State Editor ()
+onEventNormal = \case
 
-onEvent _ s = s
+  KeyPress 'i' -> apply $ tryEdit ascend
+  KeyPress 'k' -> apply $ tryEdit descend
+  KeyPress 'j' -> apply $ tryEdit shiftLeft
+  KeyPress 'l' -> apply $ tryEdit shiftRight
+  KeyPress 'J' -> apply $ tryEdit moveLeft
+  KeyPress 'L' -> apply $ tryEdit moveRight
+
+  KeyPress 'a'  -> apply $ tryEdit selectAll
+  KeyPress 's'  -> apply $ tryEdit switchBounds
+  KeyPress 'd'  -> apply delete
+  KeyPress 'f'  -> apply $ tryEdit selectNoneEnd
+
+  KeyPress ' '  -> gotoMode Insert
+
+  _ -> return ()
+
+onEventInsert :: Event -> State Editor ()
+onEventInsert = \case
+
+  KeyDown Enter -> gotoMode Normal
+  KeyPress ' '  -> apply $ tryEdit pop
+
+  KeyPress c ->
+    apply $ tryEdit $ justEdit (change $ Atom [c])
+                   >> justEdit (tryEdit $ descend >> endMax)
+                   >> selectNoneEnd
+
+  _ -> return ()

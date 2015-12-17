@@ -29,7 +29,7 @@ import Rectangle
 import Tree
 import View
 
-viewState :: State -> View
+viewState :: Editor -> View
 viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
   where contentView = defaultLayout "content" [] $ Node [treeView]
         treeView = runIdentity $ layout $ cursor s
@@ -56,7 +56,7 @@ runEditor = do
         liftIO $ putMVar events $ KeyDown k
   on ?doc keyPress $ do
     liftIO . putMVar events . KeyPress . toEnum =<< uiCharCode
-  forkIO $ react events onEvent (effectView . viewState) initState
+  forkIO $ react events handleEvent (effectView . viewState) initState
   return ()
 
 react :: MVar e -> (e -> s -> s) -> (s -> IO ()) -> s -> IO a
