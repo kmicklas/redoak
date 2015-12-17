@@ -28,7 +28,6 @@ div.atom-selection {
 .vertical, .vertical > #selection {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
 }
 
 .vertical > .content:not(:first-child),
