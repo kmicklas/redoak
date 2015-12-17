@@ -29,6 +29,8 @@ module Tree
   , elimIsSequence
   , mapIsSequence
 
+  , initAnn
+  , clearAnn
   , unCursor
   , initCursor
   , getSelection
@@ -105,7 +107,7 @@ instance Bifoldable T where
 instance Bitraversable T where
   bitraverse f g (T (a :< e)) = (T <$>) $ (((:<) <$> g a) <*>) $ case e of
     Atom v -> Atom <$> f v
-    Node ts -> Node <$> traverse (\ t -> unT <$> bitraverse f g (T t)) ts
+    Node ts -> Node <$> traverse ((unT <$>) . bitraverse f g . T) ts
 
 type Range = (Int, Int)
 
@@ -200,6 +202,12 @@ unCursor = fmap fst
 
 initCursor :: Tree a ann -> Cursor a ann
 initCursor = fmap (, Select (0, 0))
+
+clearAnn :: Tree a ann -> Tree a ()
+clearAnn = unT . second (const ()) . T
+
+initAnn :: (Fresh ann, Monad m) => Tree a old -> StateT ann m (Tree a ann)
+initAnn = (unT <$>) . bitraverse pure (const getFresh) . T
 
 getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a ann)
 getSelection = local $ do

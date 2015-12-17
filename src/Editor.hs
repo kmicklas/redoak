@@ -24,7 +24,7 @@ data Editor
     { mode :: !Mode
     , currentId :: !Word
     , cursor :: Cursor Text Word
-    , clipboard :: Trunk Text Word
+    , clipboard :: Trunk Text ()
     }
   deriving (Eq, Ord, Show)
 
@@ -59,11 +59,14 @@ gotoMode m = modify $ \ s -> s { mode = m }
 copy :: State Editor ()
 copy = do
   s <- get
-  sel <- apply getSelection
+  sel <- fmap clearAnn <$> apply getSelection
   put $ s { clipboard = sel }
 
 paste :: State Editor ()
-paste = get >>= (apply . change . second initCursor . clipboard)
+paste = do
+  s <- get
+  new <- apply $ lift $ mapM initAnn $ clipboard s
+  apply $ change $ second initCursor $ new
 
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
