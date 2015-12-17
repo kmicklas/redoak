@@ -71,8 +71,8 @@ paste = do
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
   onEvent e
-  inMode Normal $ onEventNormal e
   inMode Insert $ onEventInsert e
+  inMode Normal $ onEventNormal e
 
 onEvent :: Event -> State Editor ()
 onEvent = \case
@@ -108,7 +108,7 @@ onEventNormal = \case
   KeyPress 'n' -> apply insertNode
   KeyPress 'r' -> apply Tree.reverse
 
-  KeyPress ' ' -> gotoMode Insert
+  KeyPress 'h' -> gotoMode Insert
 
   _ -> return ()
 
