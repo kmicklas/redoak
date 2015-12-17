@@ -5,9 +5,9 @@
 {-# LANGUAGE TupleSections #-}
 
 module Tree
-  ( Tree(..)
+  ( Cofree(..)
+  , Tree
   , Trunk
-  , Ann(..)
   , Element(..)
   , Range
   , Selection(..)
@@ -19,6 +19,8 @@ module Tree
   , Edit
   , MaybeEditT
   , MaybeEdit
+
+  , ann
   , justEdit
   , tryEdit
   , getFresh
@@ -51,6 +53,7 @@ module Tree
   , moveRight
   ) where
 
+import           Control.Comonad.Cofree
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
@@ -65,33 +68,23 @@ import           Data.Traversable
 import           Data.MonoTraversable hiding (Element)
 import qualified Data.List as L
 import           Data.Maybe as M
-import           Data.Sequence as S
+import           Data.Sequence hiding ((:<))
+import qualified Data.Sequence as S
 import           Data.Sequences as SS
 import           Data.Word
-
-data Ann a ann
-  = (:=) { ann :: ann , val :: a }
-  deriving (Eq, Ord, Show)
-deriveBifunctor ''Ann
-deriveBifoldable ''Ann
-deriveBitraversable ''Ann
 
 data Element a b
   = Atom { value :: a }
   | Node { children :: Seq b }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 deriveBifunctor ''Element
 deriveBifoldable ''Element
 deriveBitraversable ''Element
 
-type Trunk a ann = Element a (Tree a ann)
+type Tree a ann = Cofree (Element a) ann
 
-newtype Tree a ann
-  = T { unTree :: Ann (Trunk a ann) ann }
-  deriving (Eq, Ord, Show)
-deriveBifunctor ''Tree
-deriveBifoldable ''Tree
-deriveBitraversable ''Tree
+-- | A Trunk is the unidentified part of a Tree
+type Trunk a ann = Element a (Tree a ann)
 
 type Range = (Int, Int)
 
@@ -122,6 +115,9 @@ getFresh = do
   put $ fresh i
   return i
 
+ann :: Tree a ann -> ann
+ann (a :< _) = a
+
 justEdit :: Monad m => EditT m a ann r -> MaybeEditT m a ann r
 justEdit = mapStateT (MaybeT . fmap Just)
 
@@ -137,8 +133,8 @@ assumeMaybeEdit :: Monad m => EditT (MaybeT m) a ann r -> EditT m a ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
 
 path :: Cursor a ann -> Path
-path (T ((_, Descend i) := Node cs)) = first (i :) $ path $ S.index cs i
-path (T ((_, Select r) := _)) = ([], r)
+path ((_, Descend i) :< Node cs) = first (i :) $ path $ S.index cs i
+path ((_, Select r) :< _) = ([], r)
 
 elimIsSequence :: forall seq x ret
                .  IsSequence seq
@@ -160,33 +156,33 @@ mapIsSequence f = \case
 
 local :: Monad m => EditT m a ann r -> EditT m a ann r
 local f = do
-  t@(T ((a, sel) := e)) <- get
+  t@((a, sel) :< e) <- get
   case (sel, e) of
     (Descend _, Atom _)  -> error "path is too deep"
     (Descend i, Node ts) -> do
       (r, child) <- lift $ runStateT (local f) $ S.index ts i
-      put $ T $ (a, sel) := Node (S.update i child ts)
+      put $ (a, sel) :< Node (S.update i child ts)
       return r
     (Select range, _) -> f
 
 localMove :: (IsSequence a, Monad m) => (Int -> Range -> Range) -> MaybeEditT m a ann ()
 localMove f = local $ do
-  T ((a, Select r) := e) <- get
+  (a, Select r) :< e <- get
   let len = elimIsSequence olength e
       (start', end') = f len r
   if min start' end' < 0 || max start' end' > len
   then mzero
-  else put $ T $ (a, Select (start', end')) := e
+  else put $ (a, Select (start', end')) :< e
 
 unCursor :: Cursor a ann -> Tree a ann
-unCursor = second fst
+unCursor = fmap fst
 
 initCursor :: Tree a ann -> Cursor a ann
-initCursor = second (, Select (0, 0))
+initCursor = fmap (, Select (0, 0))
 
 getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a ann)
 getSelection = local $ do
-  T ((_, Select r) := e) <- get
+  (_, Select r) :< e <- get
   case e of
     Atom a -> return $ Atom $ getRange r a
     Node ts -> return $ Node $ fmap unCursor $ getRange r ts
@@ -204,11 +200,11 @@ delete :: forall m ann atom
       => Monad m
       => EditT (StateT ann m) atom ann ()
 delete = local $ do
-  T ((a, Select (start, end)) := sel) <- get
+  (a, Select (start, end)) :< sel <- get
   let f seq = lpart <> rpart
         where lpart = SS.take (fromIntegral $ min start end) seq
               rpart = SS.drop (fromIntegral $ max start end) seq
-  put $ T $ ((a, Select (start, start)) :=) $ mapIsSequence f sel
+  put $ ((a, Select (start, start)) :<) $ mapIsSequence f sel
 
 change :: forall m ann atom
        .  Fresh ann
@@ -217,7 +213,7 @@ change :: forall m ann atom
        => Trunk atom (ann, Selection)
        -> EditT (StateT ann m) atom ann ()
 change new = local $ do
-    T ((a, Select (start, end)) := old) <- get
+    (a, Select (start, end)) :< old <- get
 
     let insert :: forall seq. IsSequence seq
                => seq
@@ -225,7 +221,7 @@ change new = local $ do
                -> (seq -> Trunk atom (ann, Selection))
                -> EditT (StateT ann m) atom ann ()
         insert old new inj =
-          put $ T $ (a, Select $ adjustRange new) := inj seq'
+          put $ (a, Select $ adjustRange new) :< inj seq'
           where seq' = mconcat [lPart, new, rPart]
                 (lPart, rPart) = split old
 
@@ -246,12 +242,12 @@ change new = local $ do
       -- heterogenous
       (Node o, Atom _) -> do
         id <- lift getFresh
-        insert o [T $ (id, Select (0, 0)) := new] Node
+        insert o [(id, Select (0, 0)) :< new] Node
       (Atom o, Node n) -> do
         lId <- lift getFresh
         rId <- lift getFresh
-        let cs = [T $ init lId := Atom lPart] >< n >< [T $ init rId := Atom rPart]
-        put $ T $ (a, Select (start', end')) := Node cs
+        let cs = [init lId :< Atom lPart] >< n >< [init rId :< Atom rPart]
+        put $ (a, Select (start', end')) :< Node cs
           where (lPart, rPart) = split o
                 (start', end') =
                   if start <= end
@@ -265,25 +261,25 @@ insertNode :: (IsSequence a, Fresh ann, Monad m)
            => EditT (StateT ann m) a ann ()
 insertNode = do
   id <- lift getFresh
-  change (Node [T $ (id, Select (0, 0)) := Node []])
+  change (Node [(id, Select (0, 0)) :< Node []])
 
 -- | Select the node which we're currently inside
 ascend :: Monad m => MaybeEditT m a ann ()
 ascend = (get >>=) $ \case
-  T ((a, Select _) := _) -> mzero
-  T ((a, Descend i) := Node cs) ->
+  (a, Select _) :< _ -> mzero
+  (a, Descend i) :< Node cs ->
     case S.index cs i of
-      T ((a, Select _) := _) -> put $ T $ (a, Select (i, i + 1)) := Node cs
-      t@(T ((a, Descend _) := _)) -> do
+      (a, Select _) :< _ -> put $ (a, Select (i, i + 1)) :< Node cs
+      t@((a, Descend _) :< _) -> do
         sub <- lift $ execStateT ascend t
-        put $ T $ (a, Descend i) := Node (update i sub cs)
+        put $ (a, Descend i) :< Node (update i sub cs)
 
 -- | Descend into selection, if only one element is selected
 descend :: Monad m => EditT (MaybeT m) a ann ()
 descend = local $ do
-  T ((a, Select (start, end)) := e) <- get
+  (a, Select (start, end)) :< e <- get
   if abs (start - end) == 1 && isNode e
-  then put $ T $ (a, Descend $ min start end) := e
+  then put $ (a, Descend $ min start end) :< e
   else mzero
   where isNode (Node _) = True
         isNode _        = False

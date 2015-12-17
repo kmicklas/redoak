@@ -8,7 +8,8 @@ import Control.Monad
 import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable
-import Data.Sequence
+import Data.Sequence hiding ((:<))
+import qualified Data.Sequence as S
 import Data.Sequences as SS
 import Data.Text (Text, pack)
 import qualified Data.Text as T
@@ -58,7 +59,7 @@ layout c = do
 makeLayout :: Cursor Text Word -> Layout
 makeLayout = layoutWithSelection . findPath True
   where layoutWithSelection :: Tree Text ((Word, Selection), Bool) -> Layout
-        layoutWithSelection = second $ \ ((id, sel), onPath) -> LayoutInfo
+        layoutWithSelection = fmap $ \ ((id, sel), onPath) -> LayoutInfo
           { Layout.ident = Just $ pack $ show id
           , Layout.selection = case (onPath, sel) of
               (True, Select r) -> Just r
@@ -68,7 +69,7 @@ makeLayout = layoutWithSelection . findPath True
         findPath :: Bool
                  -> Cursor Text Word
                  -> Tree Text ((Word, Selection), Bool)
-        findPath onPath (T (a@(_, sel) := e)) = T $ ((a, onPath) :=) $ case e of
+        findPath onPath (a@(_, sel) :< e) = ((a, onPath) :<) $ case e of
           Atom a  -> Atom a
           Node ts -> Node $ case (onPath, sel) of
             (True, Descend i) -> fmap (uncurry findPath)
@@ -78,24 +79,24 @@ makeLayout = layoutWithSelection . findPath True
             _                 -> findPath False <$> ts
 
 computeFull :: Rules r => Layout -> r LayoutDim
-computeFull (T (info := e)) = do
+computeFull (info :< e) = do
     (dim, e') <- case e of
       Atom a -> do
         (, Atom a) <$> inlineText a
       Node ts -> do
         fulls <- mapM computeFull ts
-        let fullDims = fmap (snd . ann . unTree) fulls
+        let fullDims = fmap (snd . ann) fulls
         let maxWidth  = maximum $ W 0 <| fmap fst fullDims
         let maxHeight = maximum $ H 0 <| fmap snd fullDims
         let dim = if maxHeight <= maxInlineHeight
                   then (sum $ fmap ((+ inlinePad) . fst) fullDims, maxHeight)
                   else (maxWidth, sum $ fmap snd fullDims)
         return (dim, Node fulls)
-    return $ T $ (info, dim) := e'
+    return $ (info, dim) :< e'
 
 -- all nodes must have full size computed
 layoutFull :: Width -> LayoutDim -> View
-layoutFull mw t@(T ((info, (w, h)) := e)) =
+layoutFull mw t@((info, (w, h)) :< e) =
   if w <= mw
   then defaultView Horizontal
   else case e of
@@ -103,29 +104,29 @@ layoutFull mw t@(T ((info, (w, h)) := e)) =
     Node ts ->
       case viewl ts of
         EmptyL -> defaultView Vertical
-        first :< rest ->
+        (S.:<) first rest ->
           let views = layoutFull mw first
                    <| fmap (layoutFull (mw - indentWidth)) rest in
-          let fullDim = ( maximum $ W 0 <| fmap (fst . dim . ann . unTree) views
-                        , sum $ fmap (snd . dim . ann . unTree) views
+          let fullDim = ( maximum $ W 0 <| fmap (fst . dim . ann) views
+                        , sum $ fmap (snd . dim . ann) views
                         ) in
-          sel $ T $ makeViewInfo Vertical (info, fullDim) := Node views
+          sel $ makeViewInfo Vertical (info, fullDim) :< Node views
 
   where sel = select $ selection info
         defaultView dir = layoutHomogenous dir t
 
 layoutHomogenous :: Direction -> LayoutDim -> View
-layoutHomogenous dir (T (ann@(info, _) := e)) =
+layoutHomogenous dir (ann@(info, _) :< e) =
   select (selection info)
-    $ T $ makeViewInfo dir ann := second (layoutHomogenous dir) e
+    $ makeViewInfo dir ann :< second (layoutHomogenous dir) e
 
 select :: Maybe Range -> View -> View
 select Nothing t = t
-select (Just (start, end)) (T (info := e)) = T $ uncurry (:=) $ case e of
+select (Just (start, end)) (info :< e) = uncurry (:<) $ case e of
   Atom a -> (info',) $ Node $
-    [ T $ lInfo := Atom lPart
-    , T $ selInfo := Atom selPart
-    , T $ rInfo := Atom rPart
+    [ lInfo :< Atom lPart
+    , selInfo :< Atom selPart
+    , rInfo :< Atom rPart
     ]
     where (lPart, selPart, rPart) = split a
           lInfo = ViewInfo
@@ -138,7 +139,7 @@ select (Just (start, end)) (T (info := e)) = T $ uncurry (:=) $ case e of
           info' = info { classes = ["atom-selection"] }
 
   Node ts ->
-    (info, Node $ mconcat [lPart, [T $ selInfo := Node selPart], rPart])
+    (info, Node $ mconcat [lPart, [selInfo :< Node selPart], rPart])
     where (lPart, selPart, rPart) = split ts
 
   where front = min start end

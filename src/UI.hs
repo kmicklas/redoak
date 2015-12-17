@@ -15,7 +15,7 @@ import Control.Monad.Identity
 import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.List
-import Data.Sequence
+import Data.Sequence hiding ((:<))
 import Data.Sequences as SS
 import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
@@ -42,7 +42,7 @@ viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
 
 defaultLayout :: Text -> [Text] -> Element Text View -> View
 defaultLayout id classes =
-  T . (ViewInfo (Just id) classes (W 0, H 0) (X 0, Y 0) :=)
+  (ViewInfo (Just id) classes (W 0, H 0) (X 0, Y 0) :<)
 
 runEditor :: WithDoc ()
 runEditor = do

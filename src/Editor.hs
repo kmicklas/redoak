@@ -13,7 +13,7 @@ import Control.Monad.State
 
 import Data.Bifunctor
 import Data.Maybe
-import Data.Sequence
+import Data.Sequence hiding ((:<))
 import Data.Text hiding (copy)
 
 import Event
@@ -37,7 +37,7 @@ initState :: Editor
 initState = Editor
   { mode = Normal
   , currentId = 1
-  , cursor = T $ (0, Select (0, 0)) := Node []
+  , cursor = (0, Select (0, 0)) :< Node []
   , clipboard = Node []
   }
 

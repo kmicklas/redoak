@@ -13,7 +13,7 @@ module View
 import Control.Monad
 import Data.Foldable
 import Data.Text hiding (map)
-import Data.Sequence
+import Data.Sequence hiding ((:<))
 import GHCJS.DOM.Document (Document, getBody, getElementById)
 import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 
@@ -36,7 +36,7 @@ effectView :: View -> WithDoc ()
 effectView new = do
   view <- makeNode new
   Just body <- getBody ?doc
-  old <- maybe (return Nothing) (getElementById ?doc) $ ident $ ann $ unTree new
+  old <- maybe (return Nothing) (getElementById ?doc) $ ident $ ann new
   maybe (return ()) (removeNode . toNode) old
   appendChild body $ Just view
   return ()
@@ -48,7 +48,7 @@ removeNode node = do
   return ()
 
 makeNode :: View -> WithDoc Node
-makeNode (T (ViewInfo id cs _ _ := e)) = case e of
+makeNode (ViewInfo id cs _ _ :< e) = case e of
   Atom t  -> el "span" (attrs id cs) =<< mapM textNode [t]
   Node es -> el "div"  (attrs id cs) =<< mapM makeNode (toList es)
 
