@@ -25,7 +25,7 @@ div.atom-selection {
   align-items: center;
 }
 
-.vertical {
+.vertical, .vertical > #selection {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -74,6 +74,10 @@ div.atom-selection {
 .horizontal > #selection.left:empty,
 .atom-selection > #selection.left {
   border-left: 0.3ex solid blue;
+}
+
+.vertical > #selection:empty {
+  width: 100%;
 }
 
 .vertical > #selection.right > :last-child, .vertical > #selection.right:empty {
