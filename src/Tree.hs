@@ -22,6 +22,7 @@ module Tree
 
   , ann
   , justEdit
+  , maybeEdit
   , tryEdit
   , getFresh
   , path
@@ -145,13 +146,19 @@ ann (a :< _) = a
 justEdit :: Monad m => EditT m a ann r -> MaybeEditT m a ann r
 justEdit = mapStateT (MaybeT . fmap Just)
 
-tryEdit :: Monad m => MaybeEditT m a ann () -> EditT m a ann ()
-tryEdit e = do
+maybeEdit :: Monad m
+          => MaybeEditT m a ann r
+          -> EditT m a ann r
+          -> EditT m a ann r
+maybeEdit try catch = do
   c <- get
-  r <- lift $ runMaybeT $ execStateT e c
+  r <- lift $ runMaybeT $ runStateT try c
   case r of
-    Nothing -> return ()
-    Just c' -> put c'
+    Nothing -> catch
+    Just (v, c') -> put c' >> return v
+
+tryEdit :: Monad m => MaybeEditT m a ann () -> EditT m a ann ()
+tryEdit = flip maybeEdit $ return ()
 
 assumeMaybeEdit :: Monad m => EditT (MaybeT m) a ann r -> EditT m a ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
