@@ -93,6 +93,10 @@ pushNode = do
   then pop >> justEdit push
   else justEdit push
 
+selectOne :: (IsSequence a, Monad m)
+          => MaybeEditT m a ann ()
+selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
+
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
   onEvent e
@@ -125,6 +129,7 @@ onEventNormal = \case
   KeyPress 's' -> apply $ tryEdit switchBounds
   KeyPress 'd' -> apply delete
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
+  KeyPress 'g' -> apply $ tryEdit selectOne
 
   KeyDown Backspace -> apply $ tryEdit deleteBackward
   KeyDown Delete    -> apply $ tryEdit deleteForward
