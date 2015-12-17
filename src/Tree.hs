@@ -35,6 +35,7 @@ module Tree
   , unCursor
   , initCursor
   , getSelection
+  , isEmpty
 
   , delete
   , change
@@ -218,6 +219,11 @@ clearAnn = unT . second (const ()) . T
 
 initAnn :: (Fresh ann, Monad m) => Tree a old -> StateT ann m (Tree a ann)
 initAnn = (unT <$>) . bitraverse pure (const getFresh) . T
+
+isEmpty :: (IsSequence a, Monad m) => EditT m a ann Bool
+isEmpty = local $ do
+  (_, Select (start, end)) :< e <- get
+  return $ start == end
 
 getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a (ann, Selection))
 getSelection = local $ do

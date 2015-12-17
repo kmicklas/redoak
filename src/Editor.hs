@@ -14,6 +14,7 @@ import Control.Monad.State
 import Data.Bifunctor
 import Data.Maybe
 import Data.Sequence hiding ((:<))
+import Data.Sequences (IsSequence)
 import Data.Text hiding (copy)
 
 import Event
@@ -68,6 +69,22 @@ paste = do
   new <- apply $ lift $ mapM initAnn $ clipboard s
   apply $ change $ second initCursor $ new
 
+deleteBackward :: (IsSequence a, Fresh ann, Monad m)
+               => MaybeEditT (StateT ann m) a ann ()
+deleteBackward = do
+  e <- isEmpty
+  if e
+  then moveLeft >> justEdit delete
+  else justEdit delete
+
+deleteForward :: (IsSequence a, Fresh ann, Monad m)
+              => MaybeEditT (StateT ann m) a ann ()
+deleteForward = do
+  e <- isEmpty
+  if e
+  then moveRight >> justEdit delete
+  else justEdit delete
+
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
   onEvent e
@@ -101,6 +118,9 @@ onEventNormal = \case
   KeyPress 'd' -> apply delete
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
 
+  KeyDown Backspace -> apply $ tryEdit deleteBackward
+  KeyDown Delete    -> apply $ tryEdit deleteForward
+
   KeyPress 'c' -> copy
   KeyPress 'x' -> copy >> apply delete
   KeyPress 'v' -> paste
@@ -120,6 +140,9 @@ onEventInsert = \case
 
   KeyDown Enter -> gotoMode Normal
   KeyPress ' '  -> apply $ tryEdit pop
+
+  KeyDown Backspace -> apply $ tryEdit deleteBackward
+  KeyDown Delete    -> apply $ tryEdit deleteForward
 
   KeyPress c ->
     apply $ tryEdit $ justEdit (change $ Atom [c])
