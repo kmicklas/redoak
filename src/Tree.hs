@@ -298,8 +298,8 @@ ascend = (get >>=) $ \case
   (a, Select _) :< _ -> mzero
   (a, Descend i) :< Node cs ->
     case S.index cs i of
-      (a, Select _) :< _ -> put $ (a, Select (i, i + 1)) :< Node cs
-      t@((a, Descend _) :< _) -> do
+      (_, Select _) :< _ -> put $ (a, Select (i, i + 1)) :< Node cs
+      t@((_, Descend _) :< _) -> do
         sub <- lift $ execStateT ascend t
         put $ (a, Descend i) :< Node (update i sub cs)
 
