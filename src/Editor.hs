@@ -85,6 +85,14 @@ deleteForward = do
   then moveRight >> justEdit delete
   else justEdit delete
 
+pushNode :: (IsSequence a, Fresh ann, Monad m)
+            => MaybeEditT (StateT ann m) a ann ()
+pushNode = do
+  a <- isInAtom
+  if a
+  then pop >> justEdit push
+  else justEdit push
+
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
   onEvent e
@@ -94,7 +102,7 @@ handleEvent e = execState $ do
 onEvent :: Event -> State Editor ()
 onEvent = \case
 
-  KeyDown Tab   -> apply push
+  KeyDown Tab   -> apply $ tryEdit pushNode
 
   KeyDown ArrowLeft  -> apply $ tryEdit shiftLeft
   KeyDown ArrowRight -> apply $ tryEdit shiftRight

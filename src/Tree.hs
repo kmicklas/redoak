@@ -36,6 +36,7 @@ module Tree
   , initCursor
   , getSelection
   , isEmpty
+  , isInAtom
 
   , delete
   , change
@@ -224,6 +225,13 @@ isEmpty :: (IsSequence a, Monad m) => EditT m a ann Bool
 isEmpty = local $ do
   (_, Select (start, end)) :< e <- get
   return $ start == end
+
+isInAtom :: (IsSequence a, Monad m) => EditT m a ann Bool
+isInAtom = local $ do
+  _ :< e <- get
+  return $ case e of
+    Atom _ -> True
+    Node _ -> False
 
 getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a (ann, Selection))
 getSelection = local $ do
