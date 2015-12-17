@@ -105,6 +105,8 @@ onEventNormal = \case
   KeyPress 'x' -> copy >> apply delete
   KeyPress 'v' -> paste
 
+  KeyPress 'r' -> apply Tree.reverse
+
   KeyPress ' ' -> gotoMode Insert
 
   _ -> return ()

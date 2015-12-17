@@ -38,6 +38,7 @@ module Tree
   , delete
   , change
   , insertNode
+  , Tree.reverse
   , ascend
   , descend
   , push
@@ -209,12 +210,12 @@ clearAnn = unT . second (const ()) . T
 initAnn :: (Fresh ann, Monad m) => Tree a old -> StateT ann m (Tree a ann)
 initAnn = (unT <$>) . bitraverse pure (const getFresh) . T
 
-getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a ann)
+getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a (ann, Selection))
 getSelection = local $ do
   (_, Select r) :< e <- get
   case e of
     Atom a -> return $ Atom $ getRange r a
-    Node ts -> return $ Node $ fmap unCursor $ getRange r ts
+    Node ts -> return $ Node $ getRange r ts
 
   where getRange :: IsSequence s => Range -> s -> s
         getRange (start, end) =
@@ -312,6 +313,9 @@ descend = local $ do
   else mzero
   where isNode (Node _) = True
         isNode _        = False
+
+reverse :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
+reverse = local $ getSelection >>= (change . mapIsSequence SS.reverse)
 
 -- * Derived Edits
 
