@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. "$(dirname "$0")/configure"
+redoak_src_datadir="$(dirname $(readlink -m "$0"))/data"
 cabal build "$@"
 if [ -n "$NIX_GHCJS" ]; then
   for jsexe in dist/build/*/*.jsexe; do

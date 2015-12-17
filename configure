@@ -1,6 +1,5 @@
 #!/bin/sh
 
-redoak_src_datadir="$(dirname $(readlink -m "$0"))/data"
 if [ -n "$NIX_GHCJS" ]; then
   cabal configure --ghcjs
 else
