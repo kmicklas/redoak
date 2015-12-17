@@ -9,8 +9,10 @@
   white-space: pre-wrap;
 }
 
-div.content {
-  border: 0.3ex solid red;
+div.content.horizontal {
+  border-left: 0.3ex solid grey;
+  border-right: 0.3ex solid grey;
+  border-radius: 0.6ex;
 }
 
 div.atom-selection {
@@ -19,50 +21,66 @@ div.atom-selection {
 }
 
 .horizontal {
-  display: flex;
-  flex-direction: row;
+  display: inline;
   align-items: center;
 }
 
 .vertical {
   display: flex;
   flex-direction: column;
+  align-content: flex-start;
 }
 
 .vertical > .content:not(:first-child),
 .vertical > #selection:first-child > .content:not(:first-child),
-.vertical > #selection:not(:first-child) > .content,
 .vertical > .atom-selection:not(:first-child),
 .vertical > #selection:first-child > .atom-selection:not(:first-child),
+.vertical > #selection:not(:first-child),
 .vertical > #selection:not(:first-child) > .atom-selection {
-  margin-left: 50px;
+  margin-left: 1rem;
+}
+
+.vertical > #selection:first-child:empty + .content {
+  margin-left: 0.2ex;
 }
 
 #selection {
   display: inherit;
   flex-direction: inherit;
-  background: aquamarine;
-  min-height: 1rem;
 }
 
-.atom-selection > #selection {
+.horizontal > #selection {
   display: inline;
   min-height: 1rem;
 }
 
-.horizontal > #selection.right, .atom-selection > #selection.right {
+#selection > .content {
+  background: aquamarine;
+}
+
+.atom-selection > #selection {
+  background: aquamarine;
+  display: inline;
+  min-height: 1rem;
+}
+
+.horizontal > #selection.right > :last-child,
+.horizontal > #selection.right:empty,
+.atom-selection > #selection.right {
   border-right: 0.3ex solid blue;
 }
 
-.horizontal > #selection.left, .atom-selection > #selection.left {
+.horizontal > #selection.left > :first-child,
+.horizontal > #selection.left:empty,
+.atom-selection > #selection.left {
   border-left: 0.3ex solid blue;
 }
 
-.vertical > #selection.right {
+.vertical > #selection.right > :last-child, .vertical > #selection.right:empty {
   border-bottom: 0.3ex solid blue;
 }
 
-.vertical > #selection.left {
+.vertical > #selection.left > :first-child, .vertical > #selection.left:empty {
   border-top: 0.3ex solid blue;
 }
 
@@ -79,9 +97,4 @@ div.atom-selection {
 #mode {
   position: fixed;
   right: 0px;
-}
-
-#debug {
-  position: fixed;
-  left: 0px;
 }
