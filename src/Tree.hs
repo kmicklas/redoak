@@ -59,8 +59,10 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Maybe
 
+import           Data.Bifoldable
 import           Data.Bifunctor
 import           Data.Bifunctor.TH
+import           Data.Bitraversable
 import           Data.Foldable
 import           Data.Functor.Identity
 import           Data.Monoid
@@ -85,6 +87,25 @@ type Tree a ann = Cofree (Element a) ann
 
 -- | A Trunk is the unidentified part of a Tree
 type Trunk a ann = Element a (Tree a ann)
+
+newtype T a ann = T { unT :: (Tree a ann) }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Bifunctor T where
+  first f (T (a :< e)) = T $ (a :<) $ case e of
+    Atom v -> Atom $ f v
+    Node ts -> Node $ (unT . first f . T) <$> ts
+  second = fmap
+
+instance Bifoldable T where
+  bifoldr f g z (T (a :< e)) = case e of
+    Atom v -> f v z
+    Node ts -> foldr (flip (bifoldr f g) . T) z ts
+
+instance Bitraversable T where
+  bitraverse f g (T (a :< e)) = (T <$>) $ (((:<) <$> g a) <*>) $ case e of
+    Atom v -> Atom <$> f v
+    Node ts -> Node <$> traverse (\ t -> unT <$> bitraverse f g (T t)) ts
 
 type Range = (Int, Int)
 
