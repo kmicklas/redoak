@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedLists, OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
 module Editor
@@ -93,9 +93,15 @@ pushNode = do
   then pop >> justEdit push
   else justEdit push
 
-selectOne :: (IsSequence a, Monad m)
-          => MaybeEditT m a ann ()
+selectOne :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
 selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
+
+insert :: (IsSequence a, Fresh ann, Monad m)
+       => a -> MaybeEditT (StateT ann m) a ann ()
+insert text = do
+  justEdit (change $ Atom text)
+  justEdit (tryEdit $ descend >> endMax)
+  selectNoneEnd
 
 handleEvent :: Event -> Editor -> Editor
 handleEvent e = execState $ do
@@ -106,12 +112,12 @@ handleEvent e = execState $ do
 onEvent :: Event -> State Editor ()
 onEvent = \case
 
-  KeyDown Tab   -> apply $ tryEdit pushNode
+  KeyDown Tab (Modifiers _ _ False) -> apply $ tryEdit pushNode
 
-  KeyDown ArrowLeft  -> apply $ tryEdit shiftLeft
-  KeyDown ArrowRight -> apply $ tryEdit shiftRight
-  KeyDown ArrowUp    -> apply $ tryEdit ascend
-  KeyDown ArrowDown  -> apply $ tryEdit descend
+  KeyDown ArrowLeft  _ -> apply $ tryEdit shiftLeft
+  KeyDown ArrowRight _ -> apply $ tryEdit shiftRight
+  KeyDown ArrowUp    _ -> apply $ tryEdit ascend
+  KeyDown ArrowDown  _ -> apply $ tryEdit descend
 
   _ -> return ()
 
@@ -131,8 +137,8 @@ onEventNormal = \case
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
   KeyPress 'g' -> apply $ tryEdit selectOne
 
-  KeyDown Backspace -> apply $ tryEdit deleteBackward
-  KeyDown Delete    -> apply $ tryEdit deleteForward
+  KeyDown Backspace _ -> apply $ tryEdit deleteBackward
+  KeyDown Delete    _ -> apply $ tryEdit deleteForward
 
   KeyPress 'c' -> copy
   KeyPress 'x' -> copy >> apply delete
@@ -151,15 +157,15 @@ onEventNormal = \case
 onEventInsert :: Event -> State Editor ()
 onEventInsert = \case
 
-  KeyDown Enter -> gotoMode Normal
-  KeyPress ' '  -> apply $ tryEdit pop
+  KeyDown Enter (Modifiers _ _ False) -> gotoMode Normal
+  KeyDown Space (Modifiers _ _ False) -> apply $ tryEdit pop
 
-  KeyDown Backspace -> apply $ tryEdit deleteBackward
-  KeyDown Delete    -> apply $ tryEdit deleteForward
+  KeyDown Enter (Modifiers _ _ True) -> apply $ tryEdit $ insert "\n"
+  KeyDown Space (Modifiers _ _ True) -> apply $ tryEdit $ insert " "
+  KeyDown Tab   (Modifiers _ _ True) -> apply $ tryEdit $ insert "\t"
 
-  KeyPress c ->
-    apply $ tryEdit $ justEdit (change $ Atom [c])
-                   >> justEdit (tryEdit $ descend >> endMax)
-                   >> selectNoneEnd
+  KeyDown Backspace _ -> apply $ tryEdit deleteBackward
+  KeyDown Delete    _ -> apply $ tryEdit deleteForward
 
+  KeyPress c -> apply $ tryEdit $ insert [c]
   _ -> return ()

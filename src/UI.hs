@@ -19,7 +19,8 @@ import Data.Sequence hiding ((:<))
 import Data.Sequences as SS
 import Data.Text
 import GHCJS.DOM.Document (Document, keyDown, keyPress)
-import GHCJS.DOM.EventM (on, preventDefault, stopPropagation, uiKeyCode, uiCharCode)
+import GHCJS.DOM.EventM (on, event, preventDefault, stopPropagation, uiKeyCode, uiCharCode)
+import GHCJS.DOM.KeyboardEvent (getCtrlKey, getAltKey, getShiftKey)
 
 import Dom
 import Editor
@@ -53,7 +54,9 @@ runEditor = do
       Just k  -> do
         stopPropagation
         preventDefault
-        liftIO $ putMVar events $ KeyDown k
+        e <- event
+        mod <- Modifiers <$> getCtrlKey e <*> getAltKey e <*> getShiftKey e
+        liftIO $ putMVar events $ KeyDown k mod
   on ?doc keyPress $ do
     liftIO . putMVar events . KeyPress . toEnum =<< uiCharCode
   forkIO $ react events handleEvent (effectView . viewState) initState
