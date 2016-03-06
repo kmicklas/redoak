@@ -6,17 +6,17 @@ let
     nativeBuildInputs = [ pkgs.haskellPackages.cabal2nix ];
   } "cabal2nix ${dir} > $out";
 
-  generated = dynamicCabal2nix (pkgs.fetchgitLocal ./.);
+  # TODO: https://github.com/NixOS/cabal2nix/issues/220
+  dir = pkgs.runCommand "temp-dir" { } ''
+    mkdir -p $out
+    cp ${./redoak.cabal} $out
+  '';
+
+  generated = dynamicCabal2nix dir;
 
   extend = _: haskellPackages: haskellPackages.override {
     # packageSetConfig = ...; # TODO: use LTS for stable dep versions
     overrides = self: super: {
-      bifunctors = overrideCabal super.bifunctors (drv: {
-        version = "5.1";
-        sha256 = "1p9m8rbrfzh9a4hgllh2hldpc97nxlis97y5biak6g4czs6xxn8b";
-        doCheck = false;
-      });
-
       redoak = super.callPackage
         generated
         (# TODO: fix cabal2nix conditional dep support
@@ -33,6 +33,7 @@ let
       overrides = self: super: {
         # TODO: should be super.redoak
         redoak = overrideCabal readoakPkgs.ghcjs.redoak (drv: {
+          src = pkgs.fetchgitLocal ./.;
           # TODO: fix cabal2nix conditional dep support
           executableHaskellDepends = drv.executableHaskellDepends
             ++ [ super.ghcjs-base ];
