@@ -33,8 +33,7 @@ let
   hacked = redoakPkgs // {
     ghcjs = redoakPkgs.ghcjs.override {
       overrides = self: super: {
-        # TODO: should be super.redoak
-        redoak = overrideCabal redoakPkgs.ghcjs.redoak (drv: {
+        redoak = overrideCabal super.redoak (drv: {
           src = pkgs.fetchgitLocal ./.;
           # TODO: fix cabal2nix conditional dep support
           executableHaskellDepends = drv.executableHaskellDepends
