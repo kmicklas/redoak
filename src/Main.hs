@@ -8,4 +8,4 @@ import Tree
 import UI
 import View
 
-main = withDocument $ \ doc -> let ?doc = doc in runEditor
+main = withDocument $ runEditor

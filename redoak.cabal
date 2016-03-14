@@ -35,7 +35,9 @@ executable redoak
     mono-traversable >= 0.10,
     mtl,
     text,
-    transformers
+    transformers,
+    reflex,
+    reflex-dom
 
   if impl(ghcjs)
     build-depends:

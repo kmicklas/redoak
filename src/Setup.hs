@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-module Setup 
+module Setup
   ( withDocument
   ) where
 
@@ -20,7 +20,7 @@ import System.Glib.Properties (newAttrFromBoolProperty)
 import Paths_redoak
 #endif
 
-withDocument :: (Document -> IO ()) -> IO ()
+withDocument :: (WebView -> Document -> IO ()) -> IO ()
 withDocument main = wrap $ runWebGUI $ \ view -> do
   Just doc <- webViewGetDomDocument view
 #ifndef __GHCJS__
@@ -37,7 +37,7 @@ withDocument main = wrap $ runWebGUI $ \ view -> do
   setHref style styleFile
   appendChild head $ Just style
 #endif
-  main doc
+  main view doc
   where
 #ifdef __GHCJS__
     wrap = id
