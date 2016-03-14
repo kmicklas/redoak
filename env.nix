@@ -26,13 +26,13 @@ let
     };
   };
 
-  readoakPkgs = pkgs.lib.attrsets.mapAttrs extend pkgs.haskell.packages;
+  redoakPkgs = pkgs.lib.attrsets.mapAttrs extend pkgs.haskell.packages;
 
-  hacked = readoakPkgs // {
-    ghcjs = readoakPkgs.ghcjs.override {
+  hacked = redoakPkgs // {
+    ghcjs = redoakPkgs.ghcjs.override {
       overrides = self: super: {
         # TODO: should be super.redoak
-        redoak = overrideCabal readoakPkgs.ghcjs.redoak (drv: {
+        redoak = overrideCabal redoakPkgs.ghcjs.redoak (drv: {
           src = pkgs.fetchgitLocal ./.;
           # TODO: fix cabal2nix conditional dep support
           executableHaskellDepends = drv.executableHaskellDepends
