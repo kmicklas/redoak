@@ -8,4 +8,10 @@ import Tree
 import UI
 import View
 
-main = withDocument $ runEditor
+import GHCJS.DOM.Document (Document, keyDown, keyPress, getBody)
+import Reflex.Dom
+
+main = withDocument $ \ webView doc -> do
+  Just body <- getBody doc
+  attachWidget body webView $ runEditor doc
+  return ()

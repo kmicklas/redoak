@@ -7,7 +7,7 @@
 module View
   ( ViewInfo(..)
   , View
-  , effectView
+  , makeNode
   ) where
 
 import           Control.Monad
@@ -36,21 +36,6 @@ data ViewInfo
   deriving (Eq, Ord, Show)
 
 type View = Tree Text ViewInfo
-
-effectView :: WebView -> Document -> View -> IO ()
-effectView webView doc new = do
-  Just body <- getBody doc
-  old <- maybe (return Nothing) (getElementById doc) $ ident $ ann new
-  maybe (return ()) (removeNode . toNode) old
-  attachWidget body webView $ makeNode new
-  return ()
-
-removeNode :: Node -> IO ()
-removeNode node = do
-  Just parent <- getParentNode node
-  removeChild parent $ Just node
-  return ()
-
 
 makeNode :: MonadWidget t m => View -> m ()
 makeNode (ViewInfo id cs _ _ :< e) = elAttr typ as $ case e of
