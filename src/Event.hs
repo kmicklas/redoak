@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module Event where
 
+import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.List.NonEmpty
@@ -66,4 +67,5 @@ globalKeyEvents doc = mergeList <$> sequence
           k    <- MaybeT $ getKey <$> uiKeyCode
           e    <- lift $ event
           mods <- lift $ Modifiers <$> getCtrlKey e <*> getAltKey e <*> getShiftKey e
+          when (k == Tab) $ lift $ preventDefault -- no change focus
           return $ KeyStroke t k mods
