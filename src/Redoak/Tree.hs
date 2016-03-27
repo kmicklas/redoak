@@ -64,24 +64,24 @@ module Redoak.Tree
 import           Control.Comonad.Cofree
 import           Control.Monad
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Maybe
-
+import           Control.Monad.Trans.State
 import           Data.Bifoldable
 import           Data.Bifunctor
 import           Data.Bifunctor.TH
 import           Data.Bitraversable
 import           Data.Foldable
 import           Data.Functor.Identity
-import           Data.Monoid
-import           Data.Traversable
-import           Data.MonoTraversable hiding (Element)
 import qualified Data.List as L
 import           Data.Maybe as M
-import           Data.Sequence hiding ((:<))
+import           Data.MonoTraversable hiding (Element)
+import           Data.Monoid
 import qualified Data.Sequence as S
+import           Data.Sequence hiding ((:<))
 import           Data.Sequences as SS
+import           Data.Traversable
 import           Data.Word
+
 
 data Element a b
   = Atom { value :: a }
@@ -96,24 +96,22 @@ type Tree a ann = Cofree (Element a) ann
 -- | A Trunk is the unidentified part of a Tree
 type Trunk a ann = Element a (Tree a ann)
 
-newtype T a ann = T { unT :: (Tree a ann) }
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+newtype T f a ann = T { unT :: Cofree (f a) ann }
+  deriving (
+      --Eq, Ord, Show,
+      Functor, Foldable, Traversable)
 
-instance Bifunctor T where
-  first f (T (a :< e)) = T $ (a :<) $ case e of
-    Atom v -> Atom $ f v
-    Node ts -> Node $ (unT . first f . T) <$> ts
-  second = fmap
+instance Bifunctor ff => Bifunctor (T ff) where
+  bimap f g = T . go . unT where
+    go (a :< e) = g a :< bimap f go e
 
-instance Bifoldable T where
-  bifoldr f g z (T (a :< e)) = case e of
-    Atom v -> f v z
-    Node ts -> foldr (flip (bifoldr f g) . T) z ts
+instance Bifoldable ff => Bifoldable (T ff) where
+  bifoldMap f g = go . unT where
+    go (a :< e) = g a `mappend` bifoldMap f go e
 
-instance Bitraversable T where
-  bitraverse f g (T (a :< e)) = (T <$>) $ (((:<) <$> g a) <*>) $ case e of
-    Atom v -> Atom <$> f v
-    Node ts -> Node <$> traverse ((unT <$>) . bitraverse f g . T) ts
+instance {-Bitraversable ff => -}Bitraversable (T Element)  where
+  bitraverse f g = fmap T . go . unT where
+    go (a :< as) = (:<) <$> g a <*> bitraverse f go as
 
 type Range = (Int, Int)
 
@@ -216,10 +214,10 @@ initCursor :: Tree a ann -> Cursor a ann
 initCursor = fmap (, Select (0, 0))
 
 clearAnn :: Tree a ann -> Tree a ()
-clearAnn = unT . second (const ()) . T
+clearAnn = fmap $ const ()
 
 initAnn :: (Fresh ann, Monad m) => Tree a old -> StateT ann m (Tree a ann)
-initAnn = (unT <$>) . bitraverse pure (const getFresh) . T
+initAnn = fmap unT . bitraverse pure (const getFresh) . T
 
 isEmpty :: (IsSequence a, Monad m) => EditT m a ann Bool
 isEmpty = local $ do
@@ -236,10 +234,7 @@ isInAtom = local $ do
 getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a (ann, Selection))
 getSelection = local $ do
   (_, Select r) :< e <- get
-  case e of
-    Atom a -> return $ Atom $ getRange r a
-    Node ts -> return $ Node $ getRange r ts
-
+  return $ mapIsSequence (getRange r) e
   where getRange :: IsSequence s => Range -> s -> s
         getRange (start, end) =
           SS.take (fromIntegral $ abs $ start - end) .
