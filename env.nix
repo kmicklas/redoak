@@ -2,8 +2,8 @@ let
   reflexPlatform = import ((import <nixpkgs> {}).fetchFromGitHub {
     owner = "reflex-frp";
     repo = "reflex-platform";
-    rev = "3106fa5bee6f737d8f7edf71f3ca190e0549539d";
-    sha256 = "1kxd4nmsk4yms037q831zy4mhcmnp4x8i9phk948lp2y5cf73ija";
+    rev = "38b172845cee2cb4d56af5cd1635f1f189f9aa06";
+    sha256 = "1lm6365c5f6jddfzy8z3dxqbjrlcjg9g7yidm1jzykr6wigwpza3";
   }) {};
   pkgs = reflexPlatform.nixpkgs;
   inherit (pkgs.haskell.lib) overrideCabal;
