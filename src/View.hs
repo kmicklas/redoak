@@ -1,25 +1,23 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ImplicitParams #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
-module View 
+module View
   ( ViewInfo(..)
   , View
-  , effectView
+  , makeNode
   ) where
 
-import Control.Monad
-import Data.Foldable
-import Data.Text hiding (map)
-import Data.Sequence hiding ((:<))
-import GHCJS.DOM.Document (Document, getBody, getElementById)
-import GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
+import           Data.List (intercalate)
+import qualified Data.Map as M
+import           Data.Text (Text)
+import qualified Data.Text as T
+import           Reflex.Dom
 
-import Dom
-import Rectangle
-import Tree
+import           Rectangle
+import           Tree
+
 
 data ViewInfo
   = ViewInfo
@@ -32,26 +30,16 @@ data ViewInfo
 
 type View = Tree Text ViewInfo
 
-effectView :: View -> WithDoc ()
-effectView new = do
-  view <- makeNode new
-  Just body <- getBody ?doc
-  old <- maybe (return Nothing) (getElementById ?doc) $ ident $ ann new
-  maybe (return ()) (removeNode . toNode) old
-  appendChild body $ Just view
-  return ()
 
-removeNode :: Node -> IO ()
-removeNode node = do
-  Just parent <- getParentNode node
-  removeChild parent $ Just node
-  return ()
+makeNode :: MonadWidget t m => View -> m ()
+makeNode (ViewInfo id cs _ _ :< e) = elAttr typ as $ case e of
+    Atom t  -> text $ T.unpack t
+    Node es -> mapM_ makeNode es
+  where typ = case e of
+          Atom t  -> "span"
+          Node es -> "div"
+        as = attrs (T.unpack <$> id) (T.unpack <$> cs)
 
-makeNode :: View -> WithDoc Node
-makeNode (ViewInfo id cs _ _ :< e) = case e of
-  Atom t  -> el "span" (attrs id cs) =<< mapM textNode [t]
-  Node es -> el "div"  (attrs id cs) =<< mapM makeNode (toList es)
-
-attrs :: Maybe Text -> [Text] -> [(Text, Text)]
-attrs id classes =
+attrs :: Maybe String -> [String] -> AttributeMap
+attrs id classes = M.fromList $
   [("class", intercalate " " classes)] ++ maybe [] (return . ("id",)) id

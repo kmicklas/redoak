@@ -1,4 +1,1 @@
-with import ./env.nix; (import <nixpkgs> {}).lib.mapAttrs (_: p: p.redoak) {
-  ghc   = ghc7102;
-  ghcjs = ghcjs;
-}
+(import <nixpkgs> {}).lib.mapAttrs (_: p: p.redoak) (import ./env.nix)

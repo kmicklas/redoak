@@ -8,4 +8,10 @@ import Tree
 import UI
 import View
 
-main = withDocument $ \ doc -> let ?doc = doc in runEditor
+import GHCJS.DOM.Document (getBody)
+import Reflex.Dom
+
+main :: IO ()
+main = withDocument $ \ webView doc -> do
+  Just body <- getBody doc
+  attachWidget body webView $ runEditor doc

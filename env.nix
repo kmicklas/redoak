@@ -1,10 +1,12 @@
 let
-  pkgs = import <nixpkgs> {};
+  reflexPlatform = import ((import <nixpkgs> {}).fetchFromGitHub {
+    owner = "reflex-frp";
+    repo = "reflex-platform";
+    rev = "3106fa5bee6f737d8f7edf71f3ca190e0549539d";
+    sha256 = "1kxd4nmsk4yms037q831zy4mhcmnp4x8i9phk948lp2y5cf73ija";
+  }) {};
+  pkgs = reflexPlatform.nixpkgs;
   inherit (pkgs.haskell.lib) overrideCabal;
-
-  dynamicCabal2nix = dir: pkgs.runCommand "dynamic-cabal2nix" {
-    nativeBuildInputs = [ pkgs.haskellPackages.cabal2nix ];
-  } "cabal2nix ${dir} > $out";
 
   # TODO: https://github.com/NixOS/cabal2nix/issues/220
   dir = pkgs.runCommand "temp-dir" { } ''
@@ -12,7 +14,7 @@ let
     cp ${./redoak.cabal} $out
   '';
 
-  generated = dynamicCabal2nix dir;
+  generated = reflexPlatform.cabal2nixResult dir;
 
   extend = _: haskellPackages: haskellPackages.override {
     # packageSetConfig = ...; # TODO: use LTS for stable dep versions
@@ -26,13 +28,12 @@ let
     };
   };
 
-  redoakPkgs = pkgs.lib.attrsets.mapAttrs extend pkgs.haskell.packages;
+  redoakPkgs = pkgs.lib.attrsets.mapAttrs extend { inherit (reflexPlatform) ghc ghcjs; };
 
   hacked = redoakPkgs // {
     ghcjs = redoakPkgs.ghcjs.override {
       overrides = self: super: {
-        # TODO: should be super.redoak
-        redoak = overrideCabal redoakPkgs.ghcjs.redoak (drv: {
+        redoak = overrideCabal super.redoak (drv: {
           src = pkgs.fetchgitLocal ./.;
           # TODO: fix cabal2nix conditional dep support
           executableHaskellDepends = drv.executableHaskellDepends
