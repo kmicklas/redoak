@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 
-module UI
+module Redoak.UI
   ( runEditor
   ) where
 
@@ -15,12 +15,12 @@ import           GHCJS.DOM.Document (Document)
 import           Reflex
 import           Reflex.Dom
 
-import           Editor
-import           Event
-import           Layout
-import           Rectangle
-import           Tree
-import           View
+import           Redoak.Editor
+import           Redoak.Event
+import           Redoak.Layout
+import           Redoak.Rectangle
+import           Redoak.Tree
+import           Redoak.View
 
 
 viewState :: Editor -> View

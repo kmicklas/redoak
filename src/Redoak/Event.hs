@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Event where
+module Redoak.Event where
 
 import Control.Monad
 import Control.Monad.Trans.Class

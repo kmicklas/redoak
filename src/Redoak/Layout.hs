@@ -2,23 +2,23 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TupleSections #-}
 
-module Layout where
+module Redoak.Layout where
 
-import Control.Monad
-import Control.Monad.Identity
-import Data.Bifunctor
-import Data.Foldable
-import Data.Sequence hiding ((:<))
+import           Control.Monad
+import           Control.Monad.Identity
+import           Data.Bifunctor
+import           Data.Foldable
+import           Data.Sequence hiding ((:<))
 import qualified Data.Sequence as S
-import Data.Sequences as SS
-import Data.Text (Text, pack)
+import           Data.Sequences as SS
+import           Data.Text (Text, pack)
 import qualified Data.Text as T
-import Data.Traversable
-import Prelude   hiding (foldr)
+import           Data.Traversable
+import           Prelude hiding (foldr)
 
-import Rectangle
-import Tree
-import View
+import           Redoak.Rectangle
+import           Redoak.Tree
+import           Redoak.View
 
 -- MAGIC CONSTANTS:
 indentWidth = W 8
@@ -60,8 +60,8 @@ makeLayout :: Cursor Text Word -> Layout
 makeLayout = layoutWithSelection . findPath True
   where layoutWithSelection :: Tree Text ((Word, Selection), Bool) -> Layout
         layoutWithSelection = fmap $ \ ((id, sel), onPath) -> LayoutInfo
-          { Layout.ident = Just $ pack $ show id
-          , Layout.selection = case (onPath, sel) of
+          { Redoak.Layout.ident = Just $ pack $ show id
+          , Redoak.Layout.selection = case (onPath, sel) of
               (True, Select r) -> Just r
               _                -> Nothing
           }
@@ -130,7 +130,7 @@ select (Just (start, end)) (info :< e) = uncurry (:<) $ case e of
     ]
     where (lPart, selPart, rPart) = split a
           lInfo = ViewInfo
-            { View.ident = Nothing
+            { Redoak.View.ident = Nothing
             , classes = []
             , dim = (W 0, H 0)
             , pos = (X 0, Y 0)
@@ -145,7 +145,7 @@ select (Just (start, end)) (info :< e) = uncurry (:<) $ case e of
   where front = min start end
         back  = max start end
         selInfo = ViewInfo
-          { View.ident = Just "selection"
+          { Redoak.View.ident = Just "selection"
           , classes = [if start <= end then "right" else "left"]
           , dim = (W 0, H 0)
           , pos = (X 0, Y 0)
@@ -164,7 +164,7 @@ dirClass Vertical   = "vertical"
 
 makeViewInfo :: Direction -> (LayoutInfo, Dimensions) -> ViewInfo
 makeViewInfo dir (LayoutInfo id sel, dim) = ViewInfo
-  { View.ident = id
+  { Redoak.View.ident = id
   , classes = ["content", dirClass dir]
   , dim = dim
   , pos = (X 0, Y 0)

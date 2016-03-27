@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedLists, OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
-module Editor
+module Redoak.Editor
   ( Editor(..)
   , initState
   , handleEvent
@@ -17,8 +17,8 @@ import Data.Sequence hiding ((:<))
 import Data.Sequences (IsSequence)
 import Data.Text hiding (copy)
 
-import Event
-import Tree
+import Redoak.Event
+import Redoak.Tree
 
 data Editor
   = Editor
@@ -145,7 +145,7 @@ onEventNormal = \case
   KeyPress 'v' -> paste
 
   KeyPress 'n' -> apply insertNode
-  KeyPress 'r' -> apply Tree.reverse
+  KeyPress 'r' -> apply Redoak.Tree.reverse
 
   KeyPress 'w' -> apply wrap
   KeyPress 'e' -> apply $ tryEdit unwrap

@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Rectangle
+module Redoak.Rectangle
   ( Width(..)
   , Height(..)
   , X(..)

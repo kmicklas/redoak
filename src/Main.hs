@@ -2,14 +2,15 @@
 
 module Main where
 
-import Editor
-import Setup
-import Tree
-import UI
-import View
-
 import GHCJS.DOM.Document (getBody)
 import Reflex.Dom
+
+import Redoak.Editor
+import Redoak.Setup
+import Redoak.Tree
+import Redoak.UI
+import Redoak.View
+
 
 main :: IO ()
 main = withDocument $ \ webView doc -> do

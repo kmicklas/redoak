@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
-module View
+module Redoak.View
   ( ViewInfo(..)
   , View
   , makeNode
@@ -15,8 +15,8 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Reflex.Dom
 
-import           Rectangle
-import           Tree
+import           Redoak.Rectangle
+import           Redoak.Tree
 
 
 data ViewInfo

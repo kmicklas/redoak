@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-module Setup
+module Redoak.Setup
   ( withDocument
   ) where
 

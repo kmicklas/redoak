@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
-module Tree
+module Redoak.Tree
   ( Cofree(..)
   , Tree
   , Trunk
@@ -41,11 +41,11 @@ module Tree
   , delete
   , change
   , insertNode
-  , Tree.reverse
+  , Redoak.Tree.reverse
   , ascend
   , descend
   , wrap
-  , Tree.unwrap
+  , Redoak.Tree.unwrap
   , push
   , pop
 
