@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ImplicitParams #-}
---{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -10,21 +9,15 @@ module View
   , makeNode
   ) where
 
-import           Control.Monad
-import           Data.Foldable
 import           Data.List (intercalate)
 import qualified Data.Map as M
-import           Data.MonoTraversable
-import           Data.Sequence hiding ((:<))
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           GHCJS.DOM (WebView)
-import           GHCJS.DOM.Document (Document, getBody, getElementById)
-import           GHCJS.DOM.Node (Node, toNode, appendChild, getParentNode, removeChild)
 import           Reflex.Dom
 
 import           Rectangle
 import           Tree
+
 
 data ViewInfo
   = ViewInfo
@@ -36,6 +29,7 @@ data ViewInfo
   deriving (Eq, Ord, Show)
 
 type View = Tree Text ViewInfo
+
 
 makeNode :: MonadWidget t m => View -> m ()
 makeNode (ViewInfo id cs _ _ :< e) = elAttr typ as $ case e of

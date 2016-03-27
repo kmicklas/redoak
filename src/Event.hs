@@ -1,12 +1,23 @@
-module Event
-  ( Event(..)
-  , Key(..)
-  , Modifiers(..)
-  , getKey
-  ) where
+{-# LANGUAGE TupleSections #-}
+module Event where
 
-data Event
-  = KeyDown Key Modifiers
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Data.List.NonEmpty
+import GHCJS.DOM.Document
+import GHCJS.DOM.EventM
+import GHCJS.DOM.KeyboardEvent
+import Reflex.Dom
+
+
+data KeyStroke
+  = Up
+  | Down
+  deriving (Eq, Ord, Show)
+
+
+data KeyEvent
+  = KeyStroke KeyStroke Key Modifiers
   | KeyPress Char
   deriving (Eq, Ord, Show)
 
@@ -40,3 +51,19 @@ getKey = \case
   8  -> Just Backspace
   46 -> Just Delete
   _  -> Nothing
+
+
+globalKeyEvents :: forall t m. MonadWidget t m
+                => Document
+                -> m (Event t (NonEmpty KeyEvent))
+globalKeyEvents doc = mergeList <$> sequence
+  [ wrapDomEventMaybe doc (`on` keyDown) $ bigFatHandler Down
+  , wrapDomEventMaybe doc (`on` keyUp)   $ bigFatHandler Up
+  , wrapDomEvent doc (`on` keyPress) $
+    KeyPress . toEnum <$> uiCharCode
+  ]
+  where bigFatHandler t = runMaybeT $ do
+          k    <- MaybeT $ getKey <$> uiKeyCode
+          e    <- lift $ event
+          mods <- lift $ Modifiers <$> getCtrlKey e <*> getAltKey e <*> getShiftKey e
+          return $ KeyStroke t k mods
