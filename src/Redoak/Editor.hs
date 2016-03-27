@@ -19,6 +19,7 @@ import Data.Text hiding (copy)
 
 import Redoak.Event
 import Redoak.Tree
+import Redoak.Tree.Range
 
 data Editor
   = Editor
@@ -145,7 +146,7 @@ onEventNormal = \case
   KeyPress 'v' -> paste
 
   KeyPress 'n' -> apply insertNode
-  KeyPress 'r' -> apply Redoak.Tree.reverse
+  KeyPress 'r' -> apply Redoak.Tree.Range.reverse
 
   KeyPress 'w' -> apply wrap
   KeyPress 'e' -> apply $ tryEdit unwrap

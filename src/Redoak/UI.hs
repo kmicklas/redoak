@@ -20,6 +20,7 @@ import           Redoak.Event
 import           Redoak.Layout
 import           Redoak.Rectangle
 import           Redoak.Tree
+import           Redoak.Tree.Range
 import           Redoak.View
 
 

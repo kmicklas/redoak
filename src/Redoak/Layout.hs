@@ -18,6 +18,7 @@ import           Prelude hiding (foldr)
 
 import           Redoak.Rectangle
 import           Redoak.Tree
+import           Redoak.Tree.Range
 import           Redoak.View
 
 -- MAGIC CONSTANTS:
