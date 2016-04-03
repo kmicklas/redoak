@@ -3,8 +3,8 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Redoak.UI
-  ( runEditor
+module Redoak
+  ( editor
   ) where
 
 import           Control.Monad.Identity
@@ -31,13 +31,9 @@ divId id = elAttr "div" ("id" =: id)
 spanId :: MonadWidget t m => String -> m a -> m a
 spanId id = elAttr "span" ("id" =: id)
 
-
 defaultLayout :: Text -> [Text] -> Element Text View -> View
 defaultLayout id classes =
   (ViewInfo (Just id) classes (W 0, H 0) (X 0, Y 0) :<)
-
-runEditor :: MonadWidget t m => Document -> m ()
-runEditor doc = editor =<< globalKeyEvents doc
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = do
