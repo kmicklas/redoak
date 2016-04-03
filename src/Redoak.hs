@@ -2,17 +2,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecursiveDo #-}
 
 module Redoak
   ( editor
   ) where
 
 import           Control.Monad.Identity
+import           Control.Monad.IO.Class
 import           Data.List
 import           Data.List.NonEmpty
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           GHCJS.DOM.Document (Document)
+import           GHCJS.DOM.Element (getClientWidth)
 import           Reflex
 import           Reflex.Dom
 
@@ -28,6 +31,9 @@ import           Redoak.View
 divId :: MonadWidget t m => String -> m a -> m a
 divId id = elAttr "div" ("id" =: id)
 
+divId' :: MonadWidget t m => String -> m () -> m (El t)
+divId' id = fmap fst . elAttr' "div" ("id" =: id)
+
 spanId :: MonadWidget t m => String -> m a -> m a
 spanId id = elAttr "span" ("id" =: id)
 
@@ -39,9 +45,16 @@ editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = do
   stateStream <- foldDyn (flip $ foldl (flip handleEvent)) initState keys
   divId "editor" $ do
-    divId "content" $ do
-      _ <- dyn =<< mapDyn (makeNode . runIdentity . layout . cursor) stateStream
-      return ()
+    rec (resizeEvent, contentEl) <- resizeDetector $ divId' "content" $ do
+          dimensionsDyn <- do
+            let getDim = getClientWidth $ _el_element contentEl
+                getDimActions = flip fmap resizeEvent $ \() -> getDim
+            widgetHold (pure $ 99999999) getDimActions
+          cursorDyn <- mapDyn cursor stateStream
+          zipped <- combineDyn (,) dimensionsDyn cursorDyn
+          let layout' (w, c) = layout (W $ floor $ w / 15) c
+          _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
+          return ()
     divId "status" $ do
       let pathString (is, (start, end)) =
             Data.List.intercalate ", " $ (fmap show is) ++

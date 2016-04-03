@@ -25,7 +25,6 @@ import           Redoak.View
 indentWidth = W 8
 maxInlineHeight = H 1
 inlinePad = W 0
-maxWidth = W 80
 
 data LayoutInfo
   = LayoutInfo
@@ -51,8 +50,8 @@ class (Monad r) => Rules r where
 instance Rules Identity where
   inlineText t = return (W $ T.length t, maxInlineHeight)
 
-layout :: Rules r => Cursor Text Word -> r View
-layout c = do
+layout :: Rules r => Width -> Cursor Text Word -> r View
+layout maxWidth c = do
   layoutFull maxWidth <$> computeFull (makeLayout c)
 
 makeLayout :: Cursor Text Word -> Layout
