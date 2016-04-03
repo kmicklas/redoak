@@ -34,6 +34,7 @@ executable redoak
                     , mtl
                     , reflex
                     , reflex-dom
+                    , parsec
                     , semigroups >= 0.18.1
                     , text
                     , transformers
