@@ -25,6 +25,7 @@ import           Redoak.View
 indentWidth = W 8
 maxInlineHeight = H 1
 inlinePad = W 0
+maxWidth = W 80
 
 data LayoutInfo
   = LayoutInfo
@@ -46,16 +47,13 @@ data Direction
 
 class (Monad r) => Rules r where
   inlineText :: Text -> r Dimensions
-  availableWidth :: r Width
 
 instance Rules Identity where
   inlineText t = return (W $ T.length t, maxInlineHeight)
-  availableWidth = return $ W 80
 
 layout :: Rules r => Cursor Text Word -> r View
 layout c = do
-  w <- availableWidth
-  layoutFull w <$> computeFull (makeLayout c)
+  layoutFull maxWidth <$> computeFull (makeLayout c)
 
 makeLayout :: Cursor Text Word -> Layout
 makeLayout = layoutWithSelection . findPath True
