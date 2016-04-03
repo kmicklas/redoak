@@ -24,16 +24,23 @@ import           Redoak.Tree.Range
 import           Redoak.View
 
 
-viewState :: Editor -> View
-viewState s = defaultLayout "editor" [] $ Node [contentView, statusView]
-  where contentView = defaultLayout "content" [] $ Node [treeView]
-        treeView = runIdentity $ layout $ cursor s
-        statusView = defaultLayout "status" [] $ Node [pathView, modeView]
-        pathView = defaultLayout "path" [] $ Atom $ T.pack $ pathString $ path $ cursor s
-        modeView = defaultLayout "mode" [] $ Atom $ T.pack $ show $ mode s
-        pathString (is, (start, end)) =
+viewState :: MonadWidget t m => Editor -> m ()
+viewState s = divId "editor" $ do
+  divId "content" $
+    makeNode $ runIdentity $ layout $ cursor s
+  divId "status" $ do
+    let pathString (is, (start, end)) =
           Data.List.intercalate ", " $ (fmap show is) ++
           [show start ++ if start == end then "" else "-" ++ show end]
+    spanId "path" $ T.pack $ pathString $ path $ cursor s
+    spanId "mode" $ T.pack $ show $ mode s
+
+divId :: MonadWidget t m => String -> m a -> m a
+divId id = elAttr "div" ("id" =: id)
+
+spanId :: MonadWidget t m => String -> Text -> m ()
+spanId id = elAttr "span" ("id" =: id) . text . T.unpack
+
 
 defaultLayout :: Text -> [Text] -> Element Text View -> View
 defaultLayout id classes =
@@ -43,5 +50,5 @@ runEditor :: MonadWidget t m => Document -> m ()
 runEditor doc = do
   keys <- globalKeyEvents doc
   stateStream <- foldDyn (flip $ foldl (flip handleEvent)) initState keys
-  _ <- dyn =<< mapDyn (makeNode . viewState) stateStream
+  _ <- dyn =<< mapDyn viewState stateStream
   return ()
