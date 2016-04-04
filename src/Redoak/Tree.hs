@@ -11,6 +11,7 @@ module Redoak.Tree
   , Trunk
   , Element(..)
   , Fresh
+  , CoFreeBiFunctor(..)
 
   , getFresh
 
@@ -47,21 +48,21 @@ type Tree a ann = Cofree (Element a) ann
 -- | A Trunk is the unidentified part of a Tree
 type Trunk a ann = Element a (Tree a ann)
 
-newtype T f a ann = T { unT :: Cofree (f a) ann }
+newtype CoFreeBiFunctor f a ann = CoFreeBiFunctor { unCoFreeBiFunctor :: Cofree (f a) ann }
   deriving (
       --Eq, Ord, Show,
       Functor, Foldable, Traversable)
 
-instance Bifunctor ff => Bifunctor (T ff) where
-  bimap f g = T . go . unT where
+instance Bifunctor ff => Bifunctor (CoFreeBiFunctor ff) where
+  bimap f g = CoFreeBiFunctor . go . unCoFreeBiFunctor where
     go (a :< e) = g a :< bimap f go e
 
-instance Bifoldable ff => Bifoldable (T ff) where
-  bifoldMap f g = go . unT where
+instance Bifoldable ff => Bifoldable (CoFreeBiFunctor ff) where
+  bifoldMap f g = go . unCoFreeBiFunctor where
     go (a :< e) = g a `mappend` bifoldMap f go e
 
-instance {-Bitraversable ff => -}Bitraversable (T Element)  where
-  bitraverse f g = fmap T . go . unT where
+instance {-Bitraversable ff => -}Bitraversable (CoFreeBiFunctor Element)  where
+  bitraverse f g = fmap CoFreeBiFunctor . go . unCoFreeBiFunctor where
     go (a :< as) = (:<) <$> g a <*> bitraverse f go as
 
 class Fresh a where
@@ -99,4 +100,4 @@ clearAnn :: Tree a ann -> Tree a ()
 clearAnn = fmap $ const ()
 
 initAnn :: (Fresh ann, Monad m) => Tree a old -> StateT ann m (Tree a ann)
-initAnn = fmap unT . bitraverse pure (const getFresh) . T
+initAnn = fmap unCoFreeBiFunctor . bitraverse pure (const getFresh) . CoFreeBiFunctor

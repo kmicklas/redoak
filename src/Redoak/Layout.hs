@@ -8,6 +8,7 @@ module Redoak.Layout where
 import           Control.Comonad
 import           Control.Monad
 import           Data.Bifunctor
+import           Data.Bitraversable
 import           Data.Foldable
 import           Data.Sequence hiding ((:<))
 import qualified Data.Sequence as S
@@ -22,11 +23,6 @@ import           Redoak.Tree
 import           Redoak.Tree.Range
 import           Redoak.View
 
--- TOOD based on monad
-class (Integral n, Num n, Ord n, Read n, Real n, Show n) => Adequate n where
-  indentWidth     :: Width  n -- TODO explicit type app
-  maxInlineHeight :: Height n
-  inlinePad       :: Width  n
 
 -- MAGIC CONSTANTS:
 data LayoutInfo
@@ -39,8 +35,9 @@ data LayoutInfo
     }
   deriving (Eq, Ord, Show)
 
-type Layout      = Tree Text LayoutInfo
-type LayoutDim n = Tree Text (LayoutInfo, Dimensions n)
+type Layout       = Tree Text                 LayoutInfo
+type LayoutAtom n = Tree (Text, Dimensions n) (LayoutInfo)
+type LayoutDim n  = Tree Text                 (LayoutInfo, Dimensions n)
 
 data Direction
   = Vertical
@@ -49,8 +46,13 @@ data Direction
 
 class (Adequate (BaseNum r), Monad r) => Rules r where
   type BaseNum r :: *
-
   inlineText :: Text -> r (Dimensions (BaseNum r))
+
+-- TOOD based on monad
+class (Integral n, Num n, Ord n, Read n, Real n, Show n) => Adequate n where
+  indentWidth     :: Width  n -- TODO explicit type app
+  maxInlineHeight :: Height n
+  inlinePad       :: Width  n
 
 type Width'      r = Width      (BaseNum r)
 type Height'     r = Height     (BaseNum r)
@@ -59,49 +61,53 @@ type Y'          r = Y          (BaseNum r)
 type Dimensions' r = Dimensions (BaseNum r)
 type Position'   r = Position   (BaseNum r)
 type View'       r = View       (BaseNum r)
+type LayoutAtom' r = LayoutAtom (BaseNum r)
 type LayoutDim'  r = LayoutDim  (BaseNum r)
 
 layout :: Rules r => Width' r -> Cursor Text Word -> r (View' r)
 layout maxWidth c = do
-  layoutFull maxWidth <$> computeFull (makeLayout c)
+  layoutFull maxWidth <$> computeFull <$> inlineAtoms (highlightSelection c)
 
-makeLayout :: Cursor Text Word -> Layout
-makeLayout = layoutWithSelection . findPath True
+highlightSelection :: Cursor Text Word -> Layout
+highlightSelection = justTheTip . highlightPath True
   where
-    layoutWithSelection :: Tree Text ((Word, Selection), Bool) -> Layout
-    layoutWithSelection = fmap $ \ ((id, sel), onPath) -> LayoutInfo
+    justTheTip :: Tree Text ((Word, Selection), Bool) -> Layout
+    justTheTip = fmap $ \ ((id, sel), onPath) -> LayoutInfo
       { Redoak.Layout.ident = id
       , Redoak.Layout.selection = case (onPath, sel) of
           (True, Select r) -> Just r
           _                -> Nothing
       }
 
-    findPath :: Bool
+    highlightPath :: Bool
              -> Cursor Text Word
              -> Tree Text ((Word, Selection), Bool)
-    findPath onPath (a@(_, sel) :< e) = ((a, onPath) :<) $ case e of
+    highlightPath onPath (a@(_, sel) :< e) = ((a, onPath) :<) $ case e of
       Atom a  -> Atom a
       Node ts -> Node $ case (onPath, sel) of
-        (True, Descend i) -> fmap (uncurry findPath)
+        (True, Descend i) -> fmap (uncurry highlightPath)
                                $ fmap (first (== i))
                                $ snd
                                $ mapAccumL (\ count elem -> (count + 1, (count, elem))) 0 ts
-        _                 -> findPath False <$> ts
+        _                 -> highlightPath False <$> ts
 
-computeFull :: Rules r => Layout -> r (LayoutDim' r)
-computeFull (info :< e) = do
-  (dim, e') <- case e of
-    Atom a -> (, Atom a) <$> inlineText a
-    Node ts -> do
-      fulls <- mapM computeFull ts
-      let fullDims = fmap (snd . extract) fulls
-      let maxWidth  = maximum $ W 0 <| fmap fst fullDims
-          maxHeight = maximum $ H 0 <| fmap snd fullDims
-      let dim = if maxHeight <= maxInlineHeight
+inlineAtoms :: Rules r => Layout -> r (LayoutAtom' r)
+inlineAtoms = fmap unCoFreeBiFunctor . bimapM f return . CoFreeBiFunctor
+  where f s = (s,) <$> inlineText s
+
+computeFull :: Adequate n => LayoutAtom n -> LayoutDim n
+computeFull (info :< e) = (info, dim) :< e' where
+  (dim, e') = case e of
+    Atom (a, dim) -> (dim, Atom a)
+    Node ts -> (dim, Node fulls)
+      where
+        fulls = computeFull <$> ts
+        fullDims = fmap (snd . extract) fulls
+        maxWidth  = maximum $ W 0 <| fmap fst fullDims
+        maxHeight = maximum $ H 0 <| fmap snd fullDims
+        dim = if maxHeight <= maxInlineHeight
                 then (sum $ fmap ((+ inlinePad) . fst) fullDims, maxHeight)
                 else (maxWidth, sum $ fmap snd fullDims)
-      return (dim, Node fulls)
-  return $ (info, dim) :< e'
 
 -- all nodes must have full size computed
 layoutFull :: Adequate n => Width n -> LayoutDim n -> View n
@@ -112,7 +118,7 @@ layoutFull mw t@((info, (w, h)) :< e) =
     Atom a -> defaultView Vertical
     Node ts -> case viewl ts of
       EmptyL -> defaultView Vertical
-      (S.:<) first rest ->
+      first S.:< rest ->
         let views = layoutFull mw first
               <| fmap (layoutFull (mw - indentWidth)) rest in
         let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract) views
