@@ -107,8 +107,9 @@ insert text = do
 handleEvent :: KeyEvent -> Editor -> Editor
 handleEvent e = execState $ do
   onEvent e
-  inMode Insert $ onEventInsert e
-  inMode Normal $ onEventNormal e
+  get >>= return . mode >>= \case
+    Insert -> onEventInsert e
+    Normal -> onEventNormal e
 
 onEvent :: KeyEvent -> State Editor ()
 onEvent = \case
@@ -119,6 +120,9 @@ onEvent = \case
   KeyStroke Down ArrowRight _ -> apply $ tryEdit shiftRight
   KeyStroke Down ArrowUp    _ -> apply $ tryEdit ascend
   KeyStroke Down ArrowDown  _ -> apply $ tryEdit descend
+
+  KeyStroke Down Backspace _ -> apply $ tryEdit deleteBackward
+  KeyStroke Down Delete    _ -> apply $ tryEdit deleteForward
 
   _ -> return ()
 
@@ -137,9 +141,6 @@ onEventNormal = \case
   KeyPress 'd' -> apply delete
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
   KeyPress 'g' -> apply $ tryEdit selectOne
-
-  KeyStroke Down Backspace _ -> apply $ tryEdit deleteBackward
-  KeyStroke Down Delete    _ -> apply $ tryEdit deleteForward
 
   KeyPress 'c' -> copy
   KeyPress 'x' -> copy >> apply delete
@@ -164,9 +165,6 @@ onEventInsert = \case
   KeyStroke Down Enter (Modifiers _ _ True) -> apply $ tryEdit $ insert "\n"
   KeyStroke Down Space (Modifiers _ _ True) -> apply $ tryEdit $ insert " "
   KeyStroke Down Tab   (Modifiers _ _ True) -> apply $ tryEdit $ insert "\t"
-
-  KeyStroke Down Backspace _ -> apply $ tryEdit deleteBackward
-  KeyStroke Down Delete    _ -> apply $ tryEdit deleteForward
 
   KeyPress c -> apply $ tryEdit $ insert [c]
   _ -> return ()

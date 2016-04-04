@@ -58,14 +58,15 @@ globalKeyEvents :: forall t m. MonadWidget t m
                 => Document
                 -> m (Event t (NonEmpty KeyEvent))
 globalKeyEvents doc = mergeList <$> sequence
-  [ wrapDomEventMaybe doc (`on` keyDown) $ bigFatHandler Down
-  , wrapDomEventMaybe doc (`on` keyUp)   $ bigFatHandler Up
-  , wrapDomEvent doc (`on` keyPress) $
-    KeyPress . toEnum <$> uiCharCode
+  [ wrapDomEventMaybe doc (`on` keyDown)  $ bigFatHandler Down
+  , wrapDomEventMaybe doc (`on` keyUp)    $ bigFatHandler Up
+  , wrapDomEvent doc (`on` keyPress) $ KeyPress . toEnum <$> uiCharCode
   ]
   where bigFatHandler t = runMaybeT $ do
           k    <- MaybeT $ getKey <$> uiKeyCode
           e    <- lift $ event
           mods <- lift $ Modifiers <$> getCtrlKey e <*> getAltKey e <*> getShiftKey e
-          when (k == Tab) $ lift $ preventDefault -- no change focus
+          lift $ do
+            stopPropagation
+            preventDefault
           return $ KeyStroke t k mods
