@@ -14,7 +14,6 @@ module Redoak.Tree.Range
   , MaybeEditT
   , MaybeEdit
 
-  , ann
   , justEdit
   , maybeEdit
   , tryEdit

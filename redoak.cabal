@@ -27,14 +27,16 @@ executable redoak
   build-depends:      base >=4.8 && <4.9
                     , bifunctors >= 5.1
                     , bytestring
+                    , comonad >= 4.2.7.2
                     , containers
                     , free
                     , ghcjs-dom
+                    , lens >= 4.13
                     , mono-traversable >= 0.10
                     , mtl
+                    , parsec
                     , reflex
                     , reflex-dom
-                    , parsec
                     , semigroups >= 0.18.1
                     , text
                     , transformers

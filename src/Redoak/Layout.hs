@@ -5,6 +5,7 @@
 
 module Redoak.Layout where
 
+import           Control.Comonad
 import           Control.Monad
 import           Data.Bifunctor
 import           Data.Foldable
@@ -30,7 +31,7 @@ class (Integral n, Num n, Ord n, Read n, Real n, Show n) => Adequate n where
 -- MAGIC CONSTANTS:
 data LayoutInfo
   = LayoutInfo
-    { ident :: Maybe Text
+    { ident :: Word
     , selection :: Maybe Range
     --, alwaysBreak :: Bool
     --, headed :: Bool -- is first child special
@@ -69,7 +70,7 @@ makeLayout = layoutWithSelection . findPath True
   where
     layoutWithSelection :: Tree Text ((Word, Selection), Bool) -> Layout
     layoutWithSelection = fmap $ \ ((id, sel), onPath) -> LayoutInfo
-      { Redoak.Layout.ident = Just $ pack $ show id
+      { Redoak.Layout.ident = id
       , Redoak.Layout.selection = case (onPath, sel) of
           (True, Select r) -> Just r
           _                -> Nothing
@@ -93,7 +94,7 @@ computeFull (info :< e) = do
     Atom a -> (, Atom a) <$> inlineText a
     Node ts -> do
       fulls <- mapM computeFull ts
-      let fullDims = fmap (snd . ann) fulls
+      let fullDims = fmap (snd . extract) fulls
       let maxWidth  = maximum $ W 0 <| fmap fst fullDims
           maxHeight = maximum $ H 0 <| fmap snd fullDims
       let dim = if maxHeight <= maxInlineHeight
@@ -114,8 +115,8 @@ layoutFull mw t@((info, (w, h)) :< e) =
       (S.:<) first rest ->
         let views = layoutFull mw first
               <| fmap (layoutFull (mw - indentWidth)) rest in
-        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . ann) views
-                      , sum $ fmap (snd . dim . ann) views
+        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract) views
+                      , sum $ fmap (snd . dim . extract) views
                       ) in
         sel $ makeViewInfo Vertical (info, fullDim) :< Node views
 
@@ -172,7 +173,7 @@ dirClass Vertical   = "vertical"
 makeViewInfo :: Adequate n
              => Direction -> (LayoutInfo, Dimensions n) -> ViewInfo n
 makeViewInfo dir (LayoutInfo id sel, dim) = ViewInfo
-  { Redoak.View.ident = id
+  { Redoak.View.ident = Just $ T.pack $ show id
   , classes = ["content", dirClass dir]
   , dim = dim
   , pos = (X 0, Y 0)

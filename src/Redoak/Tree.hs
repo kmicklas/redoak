@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -11,7 +12,6 @@ module Redoak.Tree
   , Element(..)
   , Fresh
 
-  , ann
   , getFresh
 
   , elimIsSequence
@@ -23,6 +23,8 @@ module Redoak.Tree
 
 import           Control.Comonad.Cofree
 import           Control.Monad.Trans.State
+import           Control.Lens hiding ((:<))
+import           Control.Lens.TH
 import           Data.Bifoldable
 import           Data.Bifunctor
 import           Data.Bifunctor.TH
@@ -32,9 +34,10 @@ import           Data.Sequences as SS
 
 
 data Element a b
-  = Atom { value :: a }
-  | Node { children :: Seq b }
+  = Atom { _value :: a }
+  | Node { _children :: Seq b }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+makeLenses ''Element
 deriveBifunctor ''Element
 deriveBifoldable ''Element
 deriveBitraversable ''Element
@@ -73,23 +76,21 @@ getFresh = do
   put $ fresh i
   return i
 
-ann :: Tree a ann -> ann
-ann (a :< _) = a
-
-elimIsSequence :: forall seq x ret
-               .  IsSequence seq
+elimIsSequence :: forall a n ret
+               .  IsSequence a
                => (forall s. IsSequence s => s -> ret)
-               -> Element seq x
+               -> Element a n
                -> ret
 elimIsSequence f = \case
   Atom a -> f a
   Node s -> f s
 
-mapIsSequence :: forall seq ann
-              .  IsSequence seq
+
+mapIsSequence :: forall a n
+              .  IsSequence a
               => (forall s. IsSequence s => s -> s)
-              -> Element seq ann
-              -> Element seq ann
+              -> Element a n
+              -> Element a n
 mapIsSequence f = \case
   Atom a -> Atom $ f a
   Node s -> Node $ f s
