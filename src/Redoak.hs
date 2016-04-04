@@ -22,6 +22,7 @@ import           Reflex.Dom
 import           Redoak.Editor
 import           Redoak.Event
 import           Redoak.Layout
+import           Redoak.Layout.Identity
 import           Redoak.Rectangle
 import           Redoak.Tree
 import           Redoak.Tree.Range
@@ -36,10 +37,6 @@ divId' id = fmap fst . elAttr' "div" ("id" =: id)
 
 spanId :: MonadWidget t m => String -> m a -> m a
 spanId id = elAttr "span" ("id" =: id)
-
-defaultLayout :: Text -> [Text] -> Element Text View -> View
-defaultLayout id classes =
-  (ViewInfo (Just id) classes (W 0, H 0) (X 0, Y 0) :<)
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = do

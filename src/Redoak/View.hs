@@ -19,19 +19,19 @@ import           Redoak.Rectangle
 import           Redoak.Tree
 
 
-data ViewInfo
+data ViewInfo n
   = ViewInfo
     { ident :: Maybe Text
     , classes :: [Text]
-    , dim :: Dimensions
-    , pos :: Position
+    , dim :: Dimensions n
+    , pos :: Position n
     }
   deriving (Eq, Ord, Show)
 
-type View = Tree Text ViewInfo
+type View n = Tree Text (ViewInfo n)
 
 
-makeNode :: MonadWidget t m => View -> m ()
+makeNode :: MonadWidget t m => View n -> m ()
 makeNode (ViewInfo id cs _ _ :< e) = elAttr typ as $ case e of
     Atom t  -> text $ T.unpack t
     Node es -> mapM_ makeNode es

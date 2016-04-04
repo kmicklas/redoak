@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Redoak.Rectangle
@@ -10,19 +11,20 @@ module Redoak.Rectangle
   , origin
   ) where
 
-newtype Width = W Int
+newtype Width n = W n
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
-newtype Height = H Int
+newtype Height n = H n
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
-newtype X = X Int
+newtype X n = X n
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
-newtype Y = Y Int
+newtype Y n = Y n
   deriving (Bounded, Enum, Eq, Integral, Num, Ord, Read, Real, Show)
 
-type Dimensions = (Width, Height)
-type Position   = (X, Y)
+type Dimensions n = (Width n, Height n)
+type Position   n = (X n, Y n)
 
+origin :: Num n => (X n, Y n)
 origin = (X 0, Y 0)
