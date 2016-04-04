@@ -32,7 +32,7 @@ class (Integral n, Num n, Ord n, Read n, Real n, Show n) => Adequate n where
 data LayoutInfo
   = LayoutInfo
     { ident :: Word
-    , selection :: Maybe Range
+    , selection :: Maybe (Range Word)
     --, alwaysBreak :: Bool
     --, headed :: Bool -- is first child special
     --, group :: Bool  -- is this an element from the original tree
@@ -128,7 +128,7 @@ layoutHomogenous dir (ann@(info, _) :< e) =
   select (selection info)
     $ makeViewInfo dir ann :< second (layoutHomogenous dir) e
 
-select :: Adequate n => Maybe Range -> View n -> View n
+select :: Adequate n => Maybe (Range Word) -> View n -> View n
 select Nothing t = t
 select (Just (start, end)) (info :< e) = uncurry (:<) $ case e of
   Atom a -> (info',) $ Node $

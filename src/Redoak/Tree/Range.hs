@@ -72,14 +72,14 @@ import           Data.Word
 import           Redoak.Tree
 
 
-type Range = (Int, Int)
+type Range n = (n, n)
 
 data Selection
-  = Descend Int
-  | Select Range
+  = Descend Word
+  | Select (Range Word)
   deriving (Eq, Ord, Show)
 
-type Path = ([Int], Range)
+type Path = ([Word], Range Word)
 
 type Cursor a ann = Tree a (ann, Selection)
 
@@ -89,6 +89,11 @@ type Edit a ann r = EditT Identity a ann r
 type MaybeEditT m a ann r = EditT (MaybeT m) a ann r
 type MaybeEdit a ann r = MaybeEditT Identity a ann r
 
+indexSW :: Seq a -> Word -> a
+indexSW cs i = S.index cs $ fromIntegral i
+
+diff :: Word -> Word -> Word
+diff a b = (max a b) - (min a b)
 
 justEdit :: Monad m => EditT m a ann r -> MaybeEditT m a ann r
 justEdit = mapStateT (MaybeT . fmap Just)
@@ -111,7 +116,7 @@ assumeMaybeEdit :: Monad m => EditT (MaybeT m) a ann r -> EditT m a ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
 
 path :: Cursor a ann -> Path
-path ((_, Descend i) :< Node cs) = first (i :) $ path $ S.index cs i
+path ((_, Descend i) :< Node cs) = first (i :) $ path $ indexSW cs i
 path ((_, Select r) :< _) = ([], r)
 
 local :: Monad m => EditT m a ann r -> EditT m a ann r
@@ -120,19 +125,21 @@ local f = do
   case (sel, e) of
     (Descend _, Atom _)  -> error "path is too deep"
     (Descend i, Node ts) -> do
-      (r, child) <- lift $ runStateT (local f) $ S.index ts i
-      put $ (a, sel) :< Node (S.update i child ts)
+      (r, child) <- lift $ runStateT (local f) $ indexSW ts i
+      put $ (a, sel) :< Node (S.update (fromIntegral i) child ts)
       return r
     (Select range, _) -> f
 
-localMove :: (IsSequence a, Monad m) => (Int -> Range -> Range) -> MaybeEditT m a ann ()
+localMove :: (IsSequence a, Monad m)
+          => (Int -> Range Int -> Range Int)
+          -> MaybeEditT m a ann ()
 localMove f = local $ do
   (a, Select r) :< e <- get
   let len = elimIsSequence olength e
-      (start', end') = f len r
+      (start', end') = f len $ bimap fromIntegral fromIntegral r
   if min start' end' < 0 || max start' end' > len
   then mzero
-  else put $ (a, Select (start', end')) :< e
+  else put $ (a, Select $ bimap fromIntegral fromIntegral (start', end')) :< e
 
 unCursor :: Cursor a ann -> Tree a ann
 unCursor = fmap fst
@@ -156,9 +163,9 @@ getSelection :: (IsSequence a, Monad m) => EditT m a ann (Trunk a (ann, Selectio
 getSelection = local $ do
   (_, Select r) :< e <- get
   return $ mapIsSequence (getRange r) e
-  where getRange :: IsSequence s => Range -> s -> s
+  where getRange :: IsSequence s => Range Word -> s -> s
         getRange (start, end) =
-          SS.take (fromIntegral $ abs $ start - end) .
+          SS.take (fromIntegral $ diff start end) .
           SS.drop (fromIntegral $ min start end)
 
 -- TODO: overlap between delete and change
@@ -201,10 +208,11 @@ change new = local $ do
                     , SS.drop (fromIntegral $ max start end) old
                     )
 
-        adjustRange :: forall seq. IsSequence seq => seq -> Range
+        adjustRange :: forall seq. IsSequence seq => seq -> Range Word
         adjustRange new = if start <= end
-                then (start, start + olength new)
-                else (end + olength new, end)
+                          then (start, start + len)
+                          else (end + len, end)
+          where len = fromIntegral (olength new)
 
     case (old, new) of
       -- homogenous
@@ -220,10 +228,11 @@ change new = local $ do
         let cs = [init lId :< Atom lPart] >< n >< [init rId :< Atom rPart]
         put $ (a, Select (start', end')) :< Node cs
           where (lPart, rPart) = split o
+                len = fromIntegral $ S.length n
                 (start', end') =
                   if start <= end
-                  then (1, 1 + S.length n)
-                  else (1 + S.length n, 1)
+                  then (1, 1 + len)
+                  else (1 + len, 1)
 
     where init ann = (ann, Select (0, 0))
 
@@ -239,17 +248,17 @@ ascend :: Monad m => MaybeEditT m a ann ()
 ascend = (get >>=) $ \case
   (a, Select _) :< _ -> mzero
   (a, Descend i) :< Node cs ->
-    case S.index cs i of
+    case indexSW cs i of
       (_, Select _) :< _ -> put $ (a, Select (i, i + 1)) :< Node cs
       t@((_, Descend _) :< _) -> do
         sub <- lift $ execStateT ascend t
-        put $ (a, Descend i) :< Node (update i sub cs)
+        put $ (a, Descend i) :< Node (update (fromIntegral i) sub cs)
 
 -- | Descend into selection, if only one element is selected
 descend :: Monad m => EditT (MaybeT m) a ann ()
 descend = local $ do
   (a, Select (start, end)) :< e <- get
-  if abs (start - end) == 1 && isNode e
+  if diff start end == 1 && isNode e
   then put $ (a, Descend $ min start end) :< e
   else mzero
   where isNode (Node _) = True
