@@ -1,8 +1,9 @@
 :root {
-  --text-color:     #f5f5dc;
-  --text-in-color:  #dcf5f5;
-  --selected-color: aquamarine;
-  --cursor-color:   blue;
+  --text-color:        #f5f5dc;
+  --text-in-color:     #dcf5f5;
+  --selected-color:    #7FFFD4;
+  --atom-in-selection: #D3FAD8;
+  --cursor-color:      blue;
 }
 
 .content, .atom-selection {
@@ -12,8 +13,17 @@
   font-family: sans-serif;
 }
 
+/* Curvy LR borders */
+div.content {
+  border-left: 0.3ex solid grey;
+  border-right: 0.3ex solid grey;
+  border-radius: 0.6ex;
+}
+
+
 /* Avoid highlighting atoms within selection */
-#selection > span.content {
+#selection span.content {
+  background: var(--atom-in-selection);
 }
 
 span.content {
@@ -75,13 +85,13 @@ div.atom-selection {
 .horizontal > #selection.right > :last-child,
 .horizontal > #selection.right:empty,
 .atom-selection > #selection.right {
-  border-right: 0.3ex solid var(--cursor-color);
+  border-right-color: var(--cursor-color);
 }
 
 .horizontal > #selection.left > :first-child,
 .horizontal > #selection.left:empty,
 .atom-selection > #selection.left {
-  border-left: 0.3ex solid var(--cursor-color);
+  border-left-color: var(--cursor-color);
 }
 
 .vertical > #selection:empty {
@@ -98,11 +108,6 @@ div.atom-selection {
 
 /* Metadata */
 
-div.content.horizontal {
-  border-left: 0.3ex solid grey;
-  border-right: 0.3ex solid grey;
-  border-radius: 0.6ex;
-}
 #status {
   display: block;
   position: fixed;
