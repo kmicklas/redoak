@@ -85,24 +85,26 @@ div.atom-selection {
 .horizontal > #selection.right > :last-child,
 .horizontal > #selection.right:empty,
 .atom-selection > #selection.right {
-  border-right-color: var(--cursor-color);
+  border-right: 0.3ex solid var(--cursor-color);
 }
 
 .horizontal > #selection.left > :first-child,
 .horizontal > #selection.left:empty,
 .atom-selection > #selection.left {
-  border-left-color: var(--cursor-color);
+  border-left: 0.3ex solid var(--cursor-color);
 }
 
 .vertical > #selection:empty {
   width: 100%;
 }
 
-.vertical > #selection.right > :last-child, .vertical > #selection.right:empty {
+.vertical > #selection.right > :last-child,
+.vertical > #selection.right:empty {
   border-bottom: 0.3ex solid var(--cursor-color);
 }
 
-.vertical > #selection.left > :first-child, .vertical > #selection.left:empty {
+.vertical > #selection.left > :first-child,
+.vertical > #selection.left:empty {
   border-top: 0.3ex solid var(--cursor-color);
 }
 
