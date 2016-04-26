@@ -61,7 +61,7 @@ instance Bifoldable ff => Bifoldable (CoFreeBiFunctor ff) where
   bifoldMap f g = go . unCoFreeBiFunctor where
     go (a :< e) = g a `mappend` bifoldMap f go e
 
-instance {-Bitraversable ff => -}Bitraversable (CoFreeBiFunctor Element)  where
+instance Bitraversable ff => Bitraversable (CoFreeBiFunctor ff)  where
   bitraverse f g = fmap CoFreeBiFunctor . go . unCoFreeBiFunctor where
     go (a :< as) = (:<) <$> g a <*> bitraverse f go as
 
