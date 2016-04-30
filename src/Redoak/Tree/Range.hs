@@ -71,7 +71,6 @@ import           Data.Word
 
 import           Redoak.Tree
 
-
 type Range n = (n, n)
 
 data Selection

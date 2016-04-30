@@ -33,15 +33,8 @@ import           Data.Bitraversable
 import           Data.Sequence hiding ((:<))
 import           Data.Sequences as SS
 
-
-data Element a b
-  = Atom { _value :: a }
-  | Node { _children :: Seq b }
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-makeLenses ''Element
-deriveBifunctor ''Element
-deriveBifoldable ''Element
-deriveBitraversable ''Element
+import           Redoak.Language hiding (clearAnn)
+import           Redoak.Language.Fundamental hiding (Tree, Trunk)
 
 type Tree a ann = Cofree (Element a) ann
 
@@ -64,37 +57,6 @@ instance Bifoldable ff => Bifoldable (CoFreeBiFunctor ff) where
 instance Bitraversable ff => Bitraversable (CoFreeBiFunctor ff)  where
   bitraverse f g = fmap CoFreeBiFunctor . go . unCoFreeBiFunctor where
     go (a :< as) = (:<) <$> g a <*> bitraverse f go as
-
-class Fresh a where
-  fresh :: a -> a
-
-instance Fresh Word where
-  fresh = (+ 1)
-
-getFresh :: (Fresh a, Monad m) => StateT a m a
-getFresh = do
-  i <- get
-  put $ fresh i
-  return i
-
-elimIsSequence :: forall a n ret
-               .  IsSequence a
-               => (forall s. IsSequence s => s -> ret)
-               -> Element a n
-               -> ret
-elimIsSequence f = \case
-  Atom a -> f a
-  Node s -> f s
-
-
-mapIsSequence :: forall a n
-              .  IsSequence a
-              => (forall s. IsSequence s => s -> s)
-              -> Element a n
-              -> Element a n
-mapIsSequence f = \case
-  Atom a -> Atom $ f a
-  Node s -> Node $ f s
 
 clearAnn :: Tree a ann -> Tree a ()
 clearAnn = fmap $ const ()
