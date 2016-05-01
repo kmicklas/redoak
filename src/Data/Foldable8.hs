@@ -1,3 +1,4 @@
+{-# LANGUAGE EmptyCase #-}
 module Data.Foldable8 where
 
 import Control.Applicative
@@ -65,3 +66,11 @@ class Foldable8 p where
       (Dual . Endo . flip f4) (Dual . Endo . flip f5)
       (Dual . Endo . flip f6) (Dual . Endo . flip f7)
   {-# INLINE foldl8 #-}
+
+
+instance Foldable8 (Const8 x) where
+  foldMap8 _ _ _ _ _ _ _ _ = mempty
+
+
+instance Foldable8 Void8 where
+  foldMap8 _ _ _ _ _ _ _ _ x = case x of { }

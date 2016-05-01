@@ -16,7 +16,7 @@ import qualified Data.Text as T
 import           Reflex.Dom
 
 import           Redoak.Rectangle
-import           Redoak.Tree
+import           Redoak.Language.Fundamental
 
 
 data ViewInfo n

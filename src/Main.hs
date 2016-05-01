@@ -9,7 +9,6 @@ import Redoak
 import Redoak.Editor
 import Redoak.Event
 import Redoak.Setup
-import Redoak.Tree
 import Redoak.View
 
 

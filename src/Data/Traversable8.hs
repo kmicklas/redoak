@@ -1,8 +1,10 @@
+{-# LANGUAGE EmptyCase #-}
 module Data.Traversable8 where
 
 import Control.Applicative
+import Data.Coerce
 --import Control.Monad.Trans.Instances ()
-import Data.Functor.Constant
+--import Data.Functor.Constant
 --import Data.Orphans ()
 
 import Data.Functor8
@@ -58,3 +60,11 @@ sequence8 :: (Traversable8 t, Monad m)
           -> m (t a0 a1 a2 a3 a4 a5 a6 a7)
 sequence8 = mapM8 id id id id id id id id
 {-# INLINE sequence8 #-}
+
+
+instance Traversable8 (Const8 x) where
+  traverse8 _ _ _ _ _ _ _ _ = pure . coerce
+
+
+instance Traversable8 Void8 where
+  traverse8 _ _ _ _ _ _ _ _ x = case x of { }

@@ -18,7 +18,8 @@ import Data.Sequences (IsSequence)
 import Data.Text hiding (copy)
 
 import Redoak.Event
-import Redoak.Tree
+import Redoak.Language
+import Redoak.Language.Fundamental
 import Redoak.Tree.Range
 
 data Editor
@@ -28,7 +29,7 @@ data Editor
     , cursor :: Cursor Text Word
     , clipboard :: Trunk Text ()
     }
-  deriving (Eq, Ord, Show)
+  --deriving (Eq, Ord, Show)
 
 data Mode
   = Normal

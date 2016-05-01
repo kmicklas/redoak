@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
@@ -21,6 +22,8 @@ import Data.Void
 
 import Control.Comonad.Cofree8
 import Data.Functor8
+import Data.Foldable8
+import Data.Traversable8
 
 
 data Element a b
@@ -40,6 +43,12 @@ makeLenses ''LiftBf8
 instance Bifunctor f => Functor8 (LiftBf8 f a) where
   map8 _ _ _ _ _ _ _ f = lowerBf8 %~ second f
 
+instance Bifoldable f => Foldable8 (LiftBf8 f a) where
+  foldMap8 _ _ _ _ _ _ _ f = bifoldMap (const mempty) f . _lowerBf8
+
+instance Bitraversable f => Traversable8 (LiftBf8 f a) where
+  traverse8 _ _ _ _ _ _ _ f = lowerBf8 `traverseOf` bitraverse pure f
+
 
 type MkBfTree bf a index ann =
   Cofree8'
@@ -47,14 +56,15 @@ type MkBfTree bf a index ann =
     index
     ann
 
+pattern (:<) :: ann -> Element a (Tree a ann) -> Tree a ann
+pattern a :< b = CF7 a (LiftBf8 b)
+
 type MkTree a index ann = MkBfTree Element a index ann
 
 type Tree a ann = MkTree a 7 ann
 
 -- | A Trunk is the unidentified part of a Tree
-type Trunk a ann =
-  LiftBf8 Element a (MkTree a 0 ann) (MkTree a 1 ann) (MkTree a 2 ann) (MkTree a 3 ann)
-                    (MkTree a 4 ann) (MkTree a 5 ann) (MkTree a 6 ann) (Tree a ann)
+type Trunk a ann = Element a (MkTree a 7 ann)
 
 newtype Cofree8Bifunctor bf a ann =
   Cofree8Bifunctor { _unCofree8Bifunctor :: MkBfTree bf a 7 ann }

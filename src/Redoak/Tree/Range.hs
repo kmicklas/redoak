@@ -54,7 +54,6 @@ module Redoak.Tree.Range
   , moveRight
   ) where
 
-import           Control.Comonad.Cofree
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
@@ -69,7 +68,10 @@ import           Data.Sequence hiding ((:<))
 import           Data.Sequences as SS
 import           Data.Word
 
-import           Redoak.Tree
+import           Control.Comonad.Cofree8
+
+import           Redoak.Language
+import           Redoak.Language.Fundamental
 
 type Range n = (n, n)
 
@@ -141,10 +143,10 @@ localMove f = local $ do
   else put $ (a, Select $ bimap fromIntegral fromIntegral (start', end')) :< e
 
 unCursor :: Cursor a ann -> Tree a ann
-unCursor = fmap fst
+unCursor = mapAll fst
 
 initCursor :: Tree a ann -> Cursor a ann
-initCursor = fmap (, Select (0, 0))
+initCursor = mapAll (, Select (0, 0))
 
 isEmpty :: (IsSequence a, Monad m) => EditT m a ann Bool
 isEmpty = local $ do

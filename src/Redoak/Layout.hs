@@ -7,6 +7,7 @@ module Redoak.Layout where
 
 import           Control.Comonad
 import           Control.Monad
+import           Control.Lens hiding ((:<), (<|))
 import           Data.Bifunctor
 import           Data.Bitraversable
 import           Data.Foldable
@@ -18,8 +19,10 @@ import qualified Data.Text as T
 import           Data.Traversable
 import           Prelude hiding (foldr)
 
+import           Control.Comonad.Cofree8
+
 import           Redoak.Rectangle
-import           Redoak.Tree
+import           Redoak.Language.Fundamental
 import           Redoak.Tree.Range
 import           Redoak.View
 
@@ -72,7 +75,7 @@ highlightSelection :: Cursor Text Word -> Layout
 highlightSelection = justTheTip . highlightPath True
   where
     justTheTip :: Tree Text ((Word, Selection), Bool) -> Layout
-    justTheTip = fmap $ \ ((id, sel), onPath) -> LayoutInfo
+    justTheTip = mapAll $ \ ((id, sel), onPath) -> LayoutInfo
       { Redoak.Layout.ident = id
       , Redoak.Layout.selection = case (onPath, sel) of
           (True, Select r) -> Just r
@@ -92,7 +95,7 @@ highlightSelection = justTheTip . highlightPath True
         _                 -> highlightPath False <$> ts
 
 inlineAtoms :: Rules r => Layout -> r (LayoutAtom' r)
-inlineAtoms = fmap unCoFreeBiFunctor . bimapM f return . CoFreeBiFunctor
+inlineAtoms = from unCofree8Bifunctor `mapMOf` bimapM f return
   where f s = (s,) <$> inlineText s
 
 computeFull :: Adequate n => LayoutAtom n -> LayoutDim n
@@ -102,7 +105,7 @@ computeFull (info :< e) = (info, dim) :< e' where
     Node ts -> (dim, Node fulls)
       where
         fulls = computeFull <$> ts
-        fullDims = fmap (snd . extract) fulls
+        fullDims = fmap (snd . extract . Cofree8Comonad) fulls
         maxWidth  = maximum $ W 0 <| fmap fst fullDims
         maxHeight = maximum $ H 0 <| fmap snd fullDims
         dim = if maxHeight <= maxInlineHeight
@@ -121,8 +124,8 @@ layoutFull mw t@((info, (w, h)) :< e) =
       first S.:< rest ->
         let views = layoutFull mw first
               <| fmap (layoutFull (mw - indentWidth)) rest in
-        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract) views
-                      , sum $ fmap (snd . dim . extract) views
+        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract . Cofree8Comonad) views
+                      , sum $ fmap (snd . dim . extract . Cofree8Comonad) views
                       ) in
         sel $ makeViewInfo Vertical (info, fullDim) :< Node views
 
