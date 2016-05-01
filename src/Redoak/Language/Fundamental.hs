@@ -56,22 +56,22 @@ type Trunk a ann =
   LiftBf8 Element a (MkTree a 0 ann) (MkTree a 1 ann) (MkTree a 2 ann) (MkTree a 3 ann)
                     (MkTree a 4 ann) (MkTree a 5 ann) (MkTree a 6 ann) (Tree a ann)
 
-newtype Cofree8Bifunctor bf index a ann =
-  Cofree8Bifunctor { unCofree8Bifunctor :: MkBfTree bf a index ann }
+newtype Cofree8Bifunctor bf a ann =
+  Cofree8Bifunctor { _unCofree8Bifunctor :: MkBfTree bf a 7 ann }
+makeLenses ''Cofree8Bifunctor
 
-{-
-instance Bifunctor bf => Bifunctor (Cofree8Bifunctor bf index) where
-  bimap f g = Cofree8Bifunctor . _ . unCofree8Bifunctor where
-    go = _ -- (a :< e) = g a :< bimap f go e
+instance Bifunctor bf => Bifunctor (Cofree8Bifunctor bf) where
+  bimap f g = unCofree8Bifunctor %~ go where
+    go (CF7 a e) = g a `CF7` (lowerBf8 %~ bimap f go) e
 
-instance Bifoldable ff => Bifoldable (Cofree8Bifunctor ff) where
-  bifoldMap f g = go . unCofree8Bifunctor where
-    go (a :< e) = g a `mappend` bifoldMap f go e
+instance Bifoldable bf => Bifoldable (Cofree8Bifunctor bf) where
+  bifoldMap f g = go . _unCofree8Bifunctor where
+    go (CF7 a e) = g a `mappend` bifoldMap f go (_lowerBf8 e)
 
-instance Bitraversable ff => Bitraversable (Cofree8Bifunctor ff)  where
-  bitraverse f g = fmap Cofree8Bifunctor . go . unCofree8Bifunctor where
-    go (a :< as) = (:<) <$> g a <*> bitraverse f go as
--}
+instance Bitraversable bf => Bitraversable (Cofree8Bifunctor bf)  where
+  bitraverse f g = unCofree8Bifunctor `traverseOf` go where
+    go (CF7 a e) = CF7 <$> g a <*> (lowerBf8 `traverseOf` bitraverse f go) e
+
 
 elimIsSequence :: forall a n ret
                .  IsSequence a
