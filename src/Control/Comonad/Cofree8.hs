@@ -48,7 +48,7 @@ data Cofree8
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF2 :: a2
-      -> (f2 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0 a0 a1 a2 a3 a4 a5 a6 a7)
+      -> (f2 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
@@ -199,7 +199,7 @@ mapPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
 
         => (forall n
             .  Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
-            -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  b0 b1 b2 b3 b4 b5 b6 b7)
+            -> Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  n  b0 b1 b2 b3 b4 b5 b6 b7)
 
         -> f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
@@ -210,14 +210,14 @@ mapPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7)
 
-        -> f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  b0 b1 b2 b3 b4 b5 b6 b7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  b0 b1 b2 b3 b4 b5 b6 b7)
+        -> f (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  0  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  1  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  2  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  3  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  4  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  5  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  6  b0 b1 b2 b3 b4 b5 b6 b7)
+             (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  7  b0 b1 b2 b3 b4 b5 b6 b7)
 
 mapPoly f = map8 f f f f f f f f
 
@@ -227,17 +227,12 @@ type Cofree8' f0 f1 f2 f3 f4 f5 f6 f7   n  a =
           n
           a  a  a  a  a  a  a  a
 
-data Cofree8Comonad f0 f1 f2 f3 f4 f5 f6 f7   n  a =
-  Cofree8Comonad { _unCofree8Comonad :: Cofree8' f0 f1 f2 f3 f4 f5 f6 f7   n  a }
-makeLenses ''Cofree8Comonad
-
-
 mapAll :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
           , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
        => (a -> b)
        -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
        -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  b
-mapAll f = from unCofree8Comonad %~ fmap f
+mapAll f = map8 f f f f f f f f
 
 foldMapAll :: ( Foldable8 f0, Foldable8 f1, Foldable8 f2, Foldable8 f3
               , Foldable8 f4, Foldable8 f5, Foldable8 f6, Foldable8 f7)
@@ -255,33 +250,34 @@ traverseAll :: ( Traversable8 f0, Traversable8 f1, Traversable8 f2, Traversable8
             -> f (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  b)
 traverseAll f = traverse8 f f f f f f f f
 
-instance ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
-         , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
-         => Functor (Cofree8Comonad f0 f1 f2 f3 f4 f5 f6 f7 n) where
-  fmap f = unCofree8Comonad %~ map8 f f f f f f f f
-
 
 instance ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
          , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
-         => Comonad (Cofree8Comonad f0 f1 f2 f3 f4 f5 f6 f7 n) where
-  extract = _unCofree8Comonad `go` \case
-    CF0 a _ -> a
-    CF1 a _ -> a
-    CF2 a _ -> a
-    CF3 a _ -> a
-    CF4 a _ -> a
-    CF5 a _ -> a
-    CF6 a _ -> a
-    CF7 a _ -> a
-    where go = flip (.)
+         => Functor (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6) where
+  fmap f = map8 id id id id id id id f
 
-  duplicate w = undefined {- Cofree8Comonad $ case _unCofree8Comonad w of
-    CF0 _ r -> CF0 w $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF1 _ r -> CF1 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF2 _ r -> CF2 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF3 _ r -> CF3 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF4 _ r -> CF4 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF5 _ r -> CF5 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF6 _ r -> CF6 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    CF7 _ r -> CF7 r $ mapPoly (from unCofree8Comonad %~ duplicate) r
-    -}
+
+instance forall f0 f1 f2 f3 f4 f5 f6 f7 a0 a1 a2 a3 a4 a5 a6
+         . ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
+           , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
+         => Comonad (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6) where
+  extract (CF7 a _) = a
+
+  duplicate = undefined {- dupAll
+
+dupAll :: forall f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
+       .  ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
+          , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
+       => (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7)
+       -> (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6
+            (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7))
+dupAll = \case
+      CF0 a r     -> CF0 a $ mapPoly dupAll r
+      CF1 a r     -> CF1 a $ mapPoly dupAll r
+      CF2 a r     -> CF2 a $ mapPoly dupAll r
+      CF3 a r     -> CF3 a $ mapPoly dupAll r
+      CF4 a r     -> CF4 a $ mapPoly dupAll r
+      CF5 a r     -> CF5 a $ mapPoly dupAll r
+      CF6 a r     -> CF6 a $ mapPoly dupAll r
+      w@(CF7 _ r) -> CF7 w $ mapPoly dupAll r
+-}

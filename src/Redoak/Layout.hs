@@ -105,7 +105,7 @@ computeFull (info :< e) = (info, dim) :< e' where
     Node ts -> (dim, Node fulls)
       where
         fulls = computeFull <$> ts
-        fullDims = fmap (snd . extract . Cofree8Comonad) fulls
+        fullDims = fmap (snd . extract) fulls
         maxWidth  = maximum $ W 0 <| fmap fst fullDims
         maxHeight = maximum $ H 0 <| fmap snd fullDims
         dim = if maxHeight <= maxInlineHeight
@@ -124,8 +124,8 @@ layoutFull mw t@((info, (w, h)) :< e) =
       first S.:< rest ->
         let views = layoutFull mw first
               <| fmap (layoutFull (mw - indentWidth)) rest in
-        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract . Cofree8Comonad) views
-                      , sum $ fmap (snd . dim . extract . Cofree8Comonad) views
+        let fullDim = ( maximum $ W 0 <| fmap (fst . dim . extract) views
+                      , sum $ fmap (snd . dim . extract) views
                       ) in
         sel $ makeViewInfo Vertical (info, fullDim) :< Node views
 
