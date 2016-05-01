@@ -33,7 +33,7 @@ import           Data.Bitraversable
 import           Data.Sequence hiding ((:<))
 import           Data.Sequences as SS
 
-import           Redoak.Language hiding (clearAnn)
+import           Redoak.Language hiding (clearAnn, initAnn)
 import           Redoak.Language.Fundamental hiding (Tree, Trunk)
 
 type Tree a ann = Cofree (Element a) ann
