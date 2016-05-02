@@ -73,6 +73,7 @@ import           Control.Comonad.Cofree8
 import           Redoak.Language
 import           Redoak.Language.Fundamental
 
+{-
 type Range n = (n, n)
 
 data Selection
@@ -89,36 +90,10 @@ type Edit a ann r = EditT Identity a ann r
 
 type MaybeEditT m a ann r = EditT (MaybeT m) a ann r
 type MaybeEdit a ann r = MaybeEditT Identity a ann r
+-}
 
 indexSW :: Seq a -> Word -> a
 indexSW cs i = S.index cs $ fromIntegral i
-
-diff :: Word -> Word -> Word
-diff a b = (max a b) - (min a b)
-
-justEdit :: Monad m => EditT m a ann r -> MaybeEditT m a ann r
-justEdit = mapStateT (MaybeT . fmap Just)
-
-maybeEdit :: Monad m
-          => MaybeEditT m a ann r
-          -> EditT m a ann r
-          -> EditT m a ann r
-maybeEdit try catch = do
-  c <- get
-  r <- lift $ runMaybeT $ runStateT try c
-  case r of
-    Nothing -> catch
-    Just (v, c') -> put c' >> return v
-
-tryEdit :: Monad m => MaybeEditT m a ann () -> EditT m a ann ()
-tryEdit = flip maybeEdit $ return ()
-
-assumeMaybeEdit :: Monad m => EditT (MaybeT m) a ann r -> EditT m a ann r
-assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
-
-path :: Cursor a ann -> Path
-path ((_, Descend i) :< Node cs) = first (i :) $ path $ indexSW cs i
-path ((_, Select r) :< _) = ([], r)
 
 local :: Monad m => EditT m a ann r -> EditT m a ann r
 local f = do

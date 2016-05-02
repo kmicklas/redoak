@@ -28,6 +28,7 @@ executable redoak
                     , bifunctors >= 5.1
                     , bytestring
                     , comonad >= 4.2.7.2
+                    , constraints >= 0.8
                     , containers
                     , free
                     , ghcjs-dom
