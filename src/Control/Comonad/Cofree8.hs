@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -13,13 +14,27 @@ module Control.Comonad.Cofree8 where
 import Control.Comonad
 import Control.Lens
 import Control.Lens.TH
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.State
+import Data.Bifunctor
 import Data.Constraint
+import Data.Constraint.Lifting
 import Data.Monoid
 import GHC.TypeLits
 
 import Data.Functor8
 import Data.Foldable8
 import Data.Traversable8
+
+type Cofree8Inner f  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
+  = (f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
+       (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
 
 data Cofree8
        f0 f1 f2 f3 f4 f5 f6 f7
@@ -28,91 +43,35 @@ data Cofree8
        :: * where
 
   CF0 :: a0
-      -> (f0 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f0  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF1 :: a1
-      -> (f1 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f1  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF2 :: a2
-      -> (f2 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f2  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF3 :: a3
-      -> (f3 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f3  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF4 :: a4
-      -> (f4 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f4  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF5 :: a5
-      -> (f5 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f5  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF6 :: a6
-      -> (f6 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f6  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7
 
   CF7 :: a7
-      -> (f7 (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-             (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
+      -> Cofree8Inner f7  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7
 
 
@@ -122,22 +81,8 @@ mapFPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
          => (forall n
              .  Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
              -> Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  n  b0 b1 b2 b3 b4 b5 b6 b7)
-         -> f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-              (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7)
-         -> f (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  0  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  1  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  2  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  3  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  4  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  5  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  6  b0 b1 b2 b3 b4 b5 b6 b7)
-              (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  7  b0 b1 b2 b3 b4 b5 b6 b7)
+         -> Cofree8Inner f  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
+         -> Cofree8Inner f  g0 g1 g2 g3 g4 g5 g6 g7  b0 b1 b2 b3 b4 b5 b6 b7
 mapFPoly f = map8 f f f f f f f f
 
 foldFPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
@@ -146,14 +91,7 @@ foldFPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
           => (forall n
               .  Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
               -> r)
-          -> f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-               (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7)
+          -> Cofree8Inner f  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
           -> f r r r r r r r r
 foldFPoly f = map8 f f f f f f f f
 
@@ -163,14 +101,7 @@ traverseFPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
               => (forall n
                   .  Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
                   -> g (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  n  b0 b1 b2 b3 b4 b5 b6 b7))
-              -> f (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  0  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  1  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  2  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  3  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  4  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  5  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  6  a0 a1 a2 a3 a4 a5 a6 a7)
-                   (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7)
+              -> Cofree8Inner f  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
               -> f (g (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  0  b0 b1 b2 b3 b4 b5 b6 b7))
                    (g (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  1  b0 b1 b2 b3 b4 b5 b6 b7))
                    (g (Cofree8 g0 g1 g2 g3 g4 g5 g6 g7  2  b0 b1 b2 b3 b4 b5 b6 b7))
@@ -265,38 +196,124 @@ type Cofree8' f0 f1 f2 f3 f4 f5 f6 f7   n  a =
           n
           a  a  a  a  a  a  a  a
 
-data BlankDict (ctxt :: Constraint) where
-  BlankDict :: BlankDict ctxt
+type Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7  a
+  = (f (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  0  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  1  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  2  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  3  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  4  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  5  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  6  a)
+       (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  7  a))
 
--- | The dict helps with inference
-foldPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
-            , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7
-            , k f0, k f1, k f2, k f3
+-- The dict helps with inference
+
+getAnn :: Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a -> a
+getAnn = \case
+  CF0 a r -> a
+  CF1 a r -> a
+  CF2 a r -> a
+  CF3 a r -> a
+  CF4 a r -> a
+  CF5 a r -> a
+  CF6 a r -> a
+  CF7 a r -> a
+
+setAnn :: Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+       -> a
+       -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+setAnn e a = case e of
+  CF0 _ r -> CF0 a r
+  CF1 _ r -> CF1 a r
+  CF2 _ r -> CF2 a r
+  CF3 _ r -> CF3 a r
+  CF4 _ r -> CF4 a r
+  CF5 _ r -> CF5 a r
+  CF6 _ r -> CF6 a r
+  CF7 _ r -> CF7 a r
+
+mapPoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
+                  a k n
+        .  ( k f0, k f1, k f2, k f3
+           , k f4, k f5, k f6, k f7)
+        => (forall f . k f :- Functor8 f)
+        -> (forall f
+            .  (Functor8 f, k f)
+            => Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a
+            -> Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a)
+        -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+        -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+mapPoly prf f = \case
+  CF0 a r -> CF0 a $ f r \\ (prf :: k f0 :- Functor8 f0)
+  CF1 a r -> CF1 a $ f r \\ (prf :: k f1 :- Functor8 f1)
+  CF2 a r -> CF2 a $ f r \\ (prf :: k f2 :- Functor8 f2)
+  CF3 a r -> CF3 a $ f r \\ (prf :: k f3 :- Functor8 f3)
+  CF4 a r -> CF4 a $ f r \\ (prf :: k f4 :- Functor8 f4)
+  CF5 a r -> CF5 a $ f r \\ (prf :: k f5 :- Functor8 f5)
+  CF6 a r -> CF6 a $ f r \\ (prf :: k f6 :- Functor8 f6)
+  CF7 a r -> CF7 a $ f r \\ (prf :: k f7 :- Functor8 f7)
+
+mapPolyF :: forall f0 f1 f2 f3 f4 f5 f6 f7
+                   a k n m r
+         .  ( k f0, k f1, k f2, k f3
+            , k f4, k f5, k f6, k f7
+            , Functor m)
+         => (forall f . k f :- Functor8 f)
+         -> (forall f
+             .  (Functor8 f, k f)
+             => Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a
+             -> m (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a))
+         -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+         -> m (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a)
+mapPolyF prf f = \case
+  CF0 a r -> (CF0 a) <$> (f r \\ (prf :: k f0 :- Functor8 f0))
+  CF1 a r -> (CF1 a) <$> (f r \\ (prf :: k f1 :- Functor8 f1))
+  CF2 a r -> (CF2 a) <$> (f r \\ (prf :: k f2 :- Functor8 f2))
+  CF3 a r -> (CF3 a) <$> (f r \\ (prf :: k f3 :- Functor8 f3))
+  CF4 a r -> (CF4 a) <$> (f r \\ (prf :: k f4 :- Functor8 f4))
+  CF5 a r -> (CF5 a) <$> (f r \\ (prf :: k f5 :- Functor8 f5))
+  CF6 a r -> (CF6 a) <$> (f r \\ (prf :: k f6 :- Functor8 f6))
+  CF7 a r -> (CF7 a) <$> (f r \\ (prf :: k f7 :- Functor8 f7))
+
+
+data PairT a m b = PairT { unPairT :: (m (a, b)) }
+                 deriving (Functor)
+
+mapStatePoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
+                       a k n m r
+             .  ( k f0, k f1, k f2, k f3
+                , k f4, k f5, k f6, k f7
+                , Monad m)
+             => (forall f . k f :- Functor8 f)
+             -> (forall f
+                 .  (Functor8 f, k f)
+                 => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a) m r)
+             -> StateT (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a) m r
+mapStatePoly prf f = do
+  e <- get
+  (a, s) <- lift $ unPairT $ mapPolyF prf (\r -> PairT $ runStateT f r) e
+  put s
+  return a
+
+foldPoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
+                   a k r n
+         .  ( k f0, k f1, k f2, k f3
             , k f4, k f5, k f6, k f7)
-            => BlankDict (k Void8)
-            -> (forall f
-                .  (Functor8 f, k f)
-                => a
-                -> f (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 0 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 1 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 2 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 3 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 4 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 5 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 6 a)
-                     (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7 7 a)
-                -> r)
-            -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
-            -> r
-foldPoly _ f = \case
-      CF0 a r -> f a r
-      CF1 a r -> f a r
-      CF2 a r -> f a r
-      CF3 a r -> f a r
-      CF4 a r -> f a r
-      CF5 a r -> f a r
-      CF6 a r -> f a r
-      CF7 a r -> f a r
+         => (forall g . k g :- Functor8 g)
+         -> (forall f. k f
+             => Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a
+             -> r)
+         -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+         -> r
+foldPoly prf f = \case
+      CF0 a r -> f r \\ (prf :: k f0 :- Functor8 f0)
+      CF1 a r -> f r \\ (prf :: k f1 :- Functor8 f1)
+      CF2 a r -> f r \\ (prf :: k f2 :- Functor8 f2)
+      CF3 a r -> f r \\ (prf :: k f3 :- Functor8 f3)
+      CF4 a r -> f r \\ (prf :: k f4 :- Functor8 f4)
+      CF5 a r -> f r \\ (prf :: k f5 :- Functor8 f5)
+      CF6 a r -> f r \\ (prf :: k f6 :- Functor8 f6)
+      CF7 a r -> f r \\ (prf :: k f7 :- Functor8 f7)
 
 
 mapAll :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3

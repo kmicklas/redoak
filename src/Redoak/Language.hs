@@ -1,3 +1,9 @@
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -8,10 +14,14 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import Data.Bifunctor
+import Data.Constraint
 import Data.Functor.Identity
 import Data.Map
 import Data.Maybe as M
+import Data.Proxy
 import Data.Text hiding (index)
+import Data.Type.Equality
+import Data.Void
 
 import Control.Comonad.Cofree8
 import Data.Functor8
@@ -47,17 +57,17 @@ initAnn = traverseAll (const getFresh)
 
 type Range n = (n, n)
 
-data Tip
-  = Single Word
-  | Range (Range Word)
-  deriving (Eq, Ord, Show)
+data Tip n
+  = Single n
+  | Range (Range n)
+  deriving (Eq, Ord, Show, Functor)
 
 data Selection
   = Descend Word
-  | Select Tip
+  | Select (Tip Word)
   deriving (Eq, Ord, Show)
 
-type Path = ([Word], Tip)
+type Path = ([Word], Tip Word)
 
 type Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann =
   Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n (ann, Selection)
@@ -101,7 +111,7 @@ assumeMaybeEdit :: Monad m
                 -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
 
-class Functor8 f => NonTerminal f where
+class Traversable8 f => NonTerminal f where
   -- | Number of children
   length :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Word
 
@@ -111,14 +121,79 @@ class Functor8 f => NonTerminal f where
   -- | Can we select a range of adjacent children or only a single child at a time?
   canSelectRange :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Bool
 
-  index :: forall a . f a a a a a a a a -> Word -> a
+  -- | Will `indexC` and `replaceC` work?
+  canDescend :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Bool
+
+  indexC :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
+         .  Functor m
+         => f a0 a1 a2 a3 a4 a5 a6 a7
+         -> Word
+         -> (a0 -> m b)         -> (a1 -> m b)
+         -> (a2 -> m b)         -> (a3 -> m b)
+         -> (a4 -> m b)         -> (a5 -> m b)
+         -> (a6 -> m b)         -> (a7 -> m b)
+         -> m b
+
+  modifyC :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
+          .  Functor m
+          => f a0 a1 a2 a3 a4 a5 a6 a7
+          -> Word
+          -> (a0 -> m a0)          -> (a1 -> m a1)
+          -> (a2 -> m a2)          -> (a3 -> m a3)
+          -> (a4 -> m a4)          -> (a5 -> m a5)
+          -> (a6 -> m a6)          -> (a7 -> m a7)
+          -> m (f a0 a1 a2 a3 a4 a5 a6 a7)
+
+index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
+index nt i = runIdentity $ indexC nt i
+  Identity Identity Identity Identity Identity Identity Identity Identity
 
 path :: ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
         , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
-path = foldPoly (BlankDict :: BlankDict (NonTerminal Void8)) $ curry $ \case
-  ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
-  ((_, Select r),  _)  -> ([], r)
+path l = foldPoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) (\x -> case (ann, x) of
+    ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
+    ((_, Select r),  _)  -> ([], r))
+  l
+  where ann = getAnn l
+
+local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+      .  ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
+         , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7
+         , Monad m)
+      => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
+      -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+local f = do
+  (a, sel) <- getAnn <$> get
+  case sel of
+    (Select _) -> f
+    (Descend i) -> mapStatePoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) $ do
+      nt <- get
+      unless (canDescend nt) $ error "path is too deep" -- error not fail!
+      let go :: forall n'
+             .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+             -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+          go x = PairT $ runStateT (local f) x
+      (a, s) <- lift $ unPairT $ modifyC nt i go go go go go go go go
+      put s
+      return a
+
+localMove :: ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
+             , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7
+             , Monad m)
+          => (Int -> Tip Int -> Maybe (Tip Int))
+          -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  a ann ()
+localMove f = local $ do
+  (a, Select tip) <- getAnn <$> get
+  tip'' <- mapStatePoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) $ do
+    nt <- get
+    let len = fromIntegral $ Redoak.Language.length nt
+    tip' <- lift $ MaybeT $ return $ f len $ fromIntegral <$> tip
+    guard $ case tip' of
+      Single p           -> p < len
+      Range (start, end) -> min start end > 0 || max start end < len
+    return tip'
+  modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
 
 
 class ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
