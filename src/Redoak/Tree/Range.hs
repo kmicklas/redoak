@@ -239,7 +239,7 @@ insertNode = do
 
 -- | Select the node which we're currently inside
 ascend :: Monad m => MaybeEditT m a ann ()
-ascend = (get >>=) $ \case
+ascend = get >>= \case
   (a, Select _) :< _ -> mzero
   (a, Descend i) :< Node cs ->
     case indexSW cs i of
