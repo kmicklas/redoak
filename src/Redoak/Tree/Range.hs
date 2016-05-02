@@ -165,10 +165,10 @@ getSelection = local $ do
 -- TODO: overlap between delete and change
 
 delete :: forall m ann atom
-      .  Fresh ann
-      => IsSequence atom
-      => Monad m
-      => EditT (StateT ann m) atom ann ()
+       .  Fresh ann
+       => IsSequence atom
+       => Monad m
+       => EditT (StateT ann m) atom ann ()
 delete = local $ do
   (a, Select (start, end)) :< sel <- get
   let front = min start end
@@ -237,17 +237,6 @@ insertNode = do
   id <- lift getFresh
   change (Node [(id, Select (0, 0)) :< Node []])
 
--- | Select the node which we're currently inside
-ascend :: Monad m => MaybeEditT m a ann ()
-ascend = get >>= \case
-  (a, Select _) :< _ -> mzero
-  (a, Descend i) :< Node cs ->
-    case indexSW cs i of
-      (_, Select _) :< _ -> put $ (a, Select (i, i + 1)) :< Node cs
-      t@((_, Descend _) :< _) -> do
-        sub <- lift $ execStateT ascend t
-        put $ (a, Descend i) :< Node (update (fromIntegral i) sub cs)
-
 reverse :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
 reverse = local $ getSelection >>= (change . mapIsSequence SS.reverse)
 
@@ -262,13 +251,9 @@ wrap = do
 unwrap :: (IsSequence a, Fresh ann, Monad m) => MaybeEditT (StateT ann m) a ann ()
 unwrap = do
   sel <- getSelection
-  ascend
+  _ascend
   justEdit $ change sel
 
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
 push = insertNode >> assumeMaybeEdit _descend
-
--- | Go back to editing parent, right of current position
-pop :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-pop = ascend >> _selectNoneEnd

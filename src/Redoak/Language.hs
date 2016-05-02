@@ -181,6 +181,28 @@ local f = do
       put s
       return a
 
+-- | Select the node which we're currently inside
+ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+       .  (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+       => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+ascend = (getAnn <$> get) >>= \case
+  (a, Select _) -> mzero
+  (a, Descend i) -> go0 where
+    go0 :: forall n
+        . (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+    go0 = mapStatePoly ntfCls $ do
+      nt <- get
+      unless (canDescend nt) $ error "path is too deep" -- error not fail!
+      let go :: forall n'
+             .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+            -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+          go x = PairT $ case getAnn x of
+            (a, Select _)  -> return (True, x)
+            (a, Descend i) -> runStateT (ascend >> return False) x
+      (a, s) <- lift $ unPairT $ modifyC nt i go go go go go go go go
+      put s
+
 -- | Descend into selection, if only one element is selected
 descend :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
@@ -191,6 +213,11 @@ descend = local $ do
     Single pos         -> pos
     Range (start, end) -> min start end
   return ()
+
+-- | Go back to editing parent, right of current position
+pop :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+    => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+pop = ascend >> selectNoneEnd
 
 localMove :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => (Int -> Tip Int -> Maybe (Tip Int))
