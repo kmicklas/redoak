@@ -232,6 +232,11 @@ setAnn e a = case e of
   CF6 _ r -> CF6 a r
   CF7 _ r -> CF7 a r
 
+modifyAnn :: (a -> a)
+          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a
+modifyAnn f e = setAnn e $ f $ getAnn e
+
 mapPoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
                   a k n
         .  ( k f0, k f1, k f2, k f3

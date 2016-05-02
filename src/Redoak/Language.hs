@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -144,30 +145,32 @@ class Traversable8 f => NonTerminal f where
           -> (a6 -> m a6)          -> (a7 -> m a7)
           -> m (f a0 a1 a2 a3 a4 a5 a6 a7)
 
+instance Class (Functor8 f) (NonTerminal f) where cls = Sub Dict
+
+ntfCls :: forall a. NonTerminal a :- Functor8 a
+ntfCls = cls
+
 index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
-path :: ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
-        , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
+path :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
-path l = foldPoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) (\x -> case (ann, x) of
+path l = foldPoly ntfCls (\x -> case (ann, x) of
     ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
     ((_, Select r),  _)  -> ([], r))
   l
   where ann = getAnn l
 
 local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-      .  ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
-         , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7
-         , Monad m)
+      .  (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
       => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
       -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 local f = do
   (a, sel) <- getAnn <$> get
   case sel of
     (Select _) -> f
-    (Descend i) -> mapStatePoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) $ do
+    (Descend i) -> mapStatePoly ntfCls $ do
       nt <- get
       unless (canDescend nt) $ error "path is too deep" -- error not fail!
       let go :: forall n'
@@ -178,14 +181,23 @@ local f = do
       put s
       return a
 
-localMove :: ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
-             , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7
-             , Monad m)
+-- | Descend into selection, if only one element is selected
+descend :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+descend = local $ do
+  _ <- guardSingle
+  guard =<< (foldPoly ntfCls canDescend) <$> get
+  modify $ modifyAnn $ second $ \(Select x) -> Descend $ case x of
+    Single pos         -> pos
+    Range (start, end) -> min start end
+  return ()
+
+localMove :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => (Int -> Tip Int -> Maybe (Tip Int))
-          -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  a ann ()
+          -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 localMove f = local $ do
   (a, Select tip) <- getAnn <$> get
-  tip'' <- mapStatePoly (Sub Dict :: forall a. NonTerminal a :- Functor8 a) $ do
+  tip'' <- mapStatePoly ntfCls $ do
     nt <- get
     let len = fromIntegral $ Redoak.Language.length nt
     tip' <- lift $ MaybeT $ return $ f len $ fromIntegral <$> tip
@@ -195,6 +207,83 @@ localMove f = local $ do
     return tip'
   modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
 
+localMoveR :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+           => (Int -> Range Int -> Range Int)
+           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+localMoveR f = localMove $ \x -> \case
+  Single _ -> Nothing
+  Range  y -> Just $ Range $ f x y
+
+switchBounds :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+             => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+switchBounds = localMoveR $ \_ (start, end) -> (end, start)
+
+startMin :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+startMin = localMoveR $ \ _ (_, end) -> (0, end)
+
+endMax :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+       => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+endMax = localMoveR $ \ size (start, _) -> (start, size)
+
+selectAll :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+selectAll = localMoveR $ \ size (_, end) -> (0, size)
+
+selectNoneStart :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+                => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+selectNoneStart = localMoveR $ \ _ (start, _) -> (start, start)
+
+selectNoneEnd :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+              => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+selectNoneEnd = localMoveR $ \ _ (_, end) -> (end, end)
+
+shiftLeft :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+shiftLeft = localMove $ const $ Just . \case
+  Single pos         -> Single $ pos - 1
+  Range (start, end) -> Range (start - 1, end - 1)
+
+shiftRight :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+shiftRight = localMove $ const $ Just . \case
+  Single pos         -> Single $ pos + 1
+  Range (start, end) -> Range (start + 1, end + 1)
+
+moveLeft :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+moveLeft = localMoveR $ \ _ (start, end) -> (start, end - 1)
+
+moveRight :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+moveRight = localMoveR $ \ _ (start, end) -> (start, end + 1)
+
+unCursor :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
+         => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
+         -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
+unCursor = mapAll fst
+
+initCursor :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
+           => Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
+           -> Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
+initCursor = mapAll (, Select (Single 0)) -- TODO Pick Correct Selection Type
+
+isEmpty :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+          => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Bool
+isEmpty = local $ do
+  (_, Select sel) <- getAnn <$> get
+  return $ case sel of
+    Single _           -> False
+    Range (start, end) -> start == end
+
+guardSingle :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+            => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Word
+guardSingle = do
+  (_, Select sel) <- getAnn <$> get
+  case sel of
+    Single pos         -> return pos
+    Range (start, end) -> do guard $ diff start end == 1
+                             return $ min start end
 
 class ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
       , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)

@@ -76,8 +76,7 @@ import           Redoak.Language hiding ( Range, Selection(..), Path, Cursor, Ed
                                         , maybeEdit
                                         , tryEdit
                                         , assumeMaybeEdit
-                                        , local
-                                        , localMove)
+                                        , local)
 import           Redoak.Language.Fundamental
 
 
@@ -135,17 +134,6 @@ local f = do
       return r
     (Select range, _) -> f
 
-localMove :: (IsSequence a, Monad m)
-          => (Int -> Range Int -> Range Int)
-          -> MaybeEditT m a ann ()
-localMove f = local $ do
-  (a, Select r) :< e <- get
-  let len = elimIsSequence olength e
-      (start', end') = f len $ bimap fromIntegral fromIntegral r
-  if min start' end' < 0 || max start' end' > len
-  then mzero
-  else put $ (a, Select $ bimap fromIntegral fromIntegral (start', end')) :< e
-
 --
 ---
 --
@@ -157,17 +145,6 @@ localMove f = local $ do
 
 indexSW :: Seq a -> Word -> a
 indexSW cs i = S.index cs $ fromIntegral i
-
-unCursor :: Cursor a ann -> Tree a ann
-unCursor = mapAll fst
-
-initCursor :: Tree a ann -> Cursor a ann
-initCursor = mapAll (, Select (0, 0))
-
-isEmpty :: (IsSequence a, Monad m) => EditT m a ann Bool
-isEmpty = local $ do
-  (_, Select (start, end)) :< e <- get
-  return $ start == end
 
 isInAtom :: (IsSequence a, Monad m) => EditT m a ann Bool
 isInAtom = local $ do
@@ -271,16 +248,6 @@ ascend = (get >>=) $ \case
         sub <- lift $ execStateT ascend t
         put $ (a, Descend i) :< Node (update (fromIntegral i) sub cs)
 
--- | Descend into selection, if only one element is selected
-descend :: Monad m => EditT (MaybeT m) a ann ()
-descend = local $ do
-  (a, Select (start, end)) :< e <- get
-  if diff start end == 1 && isNode e
-  then put $ (a, Descend $ min start end) :< e
-  else mzero
-  where isNode (Node _) = True
-        isNode _        = False
-
 reverse :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
 reverse = local $ getSelection >>= (change . mapIsSequence SS.reverse)
 
@@ -300,38 +267,8 @@ unwrap = do
 
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann, Monad m) => EditT (StateT ann m) a ann ()
-push = insertNode >> assumeMaybeEdit descend
+push = insertNode >> assumeMaybeEdit _descend
 
 -- | Go back to editing parent, right of current position
 pop :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-pop = ascend >> selectNoneEnd
-
-switchBounds :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-switchBounds = localMove $ \ _ (start, end) -> (end, start)
-
-startMin :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-startMin = localMove $ \ _ (_, end) -> (0, end)
-
-endMax :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-endMax = localMove $ \ size (start, _) -> (start, size)
-
-selectAll :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-selectAll = localMove $ \ size (_, end) -> (0, size)
-
-selectNoneStart :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-selectNoneStart = localMove $ \ _ (start, _) -> (start, start)
-
-selectNoneEnd :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-selectNoneEnd = localMove $ \ _ (_, end) -> (end, end)
-
-shiftLeft :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-shiftLeft = localMove $ \ _ (start, end) -> (start - 1, end - 1)
-
-shiftRight :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-shiftRight = localMove $ \ _ (start, end) -> (start + 1, end + 1)
-
-moveLeft :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-moveLeft = localMove $ \ _ (start, end) -> (start, end - 1)
-
-moveRight :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
-moveRight = localMove $ \ _ (start, end) -> (start, end + 1)
+pop = ascend >> _selectNoneEnd
