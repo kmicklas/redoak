@@ -357,21 +357,20 @@ instance forall f0 f1 f2 f3 f4 f5 f6 f7 a0 a1 a2 a3 a4 a5 a6
          => Comonad (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6) where
   extract (CF7 a _) = a
 
-  duplicate = undefined {- dupAll
+  duplicate = dupAll
 
 dupAll :: forall f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7
        .  ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
           , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
        => (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7)
        -> (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6
-            (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7))
+            (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7))
 dupAll = \case
-      CF0 a r     -> CF0 a $ mapPoly dupAll r
-      CF1 a r     -> CF1 a $ mapPoly dupAll r
-      CF2 a r     -> CF2 a $ mapPoly dupAll r
-      CF3 a r     -> CF3 a $ mapPoly dupAll r
-      CF4 a r     -> CF4 a $ mapPoly dupAll r
-      CF5 a r     -> CF5 a $ mapPoly dupAll r
-      CF6 a r     -> CF6 a $ mapPoly dupAll r
-      w@(CF7 _ r) -> CF7 w $ mapPoly dupAll r
--}
+  CF0 a r     -> CF0 a $ mapFPoly dupAll r
+  CF1 a r     -> CF1 a $ mapFPoly dupAll r
+  CF2 a r     -> CF2 a $ mapFPoly dupAll r
+  CF3 a r     -> CF3 a $ mapFPoly dupAll r
+  CF4 a r     -> CF4 a $ mapFPoly dupAll r
+  CF5 a r     -> CF5 a $ mapFPoly dupAll r
+  CF6 a r     -> CF6 a $ mapFPoly dupAll r
+  w@(CF7 _ r) -> CF7 w $ mapFPoly dupAll r
