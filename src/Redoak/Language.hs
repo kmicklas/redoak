@@ -1,8 +1,8 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -29,8 +29,6 @@ import Data.Functor8
 import Data.Traversable8
 
 
-type Language f0 f1 f2 f3 f4 f5 f6 f7  a = Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  7  a
-
 class Fresh a where
   fresh :: a -> a
 
@@ -45,15 +43,15 @@ getFresh = do
 
 clearAnn :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
             , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
-         => Language f0 f1 f2 f3 f4 f5 f6 f7 ann
-         -> Language f0 f1 f2 f3 f4 f5 f6 f7 ()
+         => Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
+         -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ()
 clearAnn = mapAll $ const ()
 
 initAnn :: ( Traversable8 f0, Traversable8 f1, Traversable8 f2, Traversable8 f3
            , Traversable8 f4, Traversable8 f5, Traversable8 f6, Traversable8 f7)
         => (Fresh ann, Monad m)
-        => Language f0 f1 f2 f3 f4 f5 f6 f7 old
-        -> StateT ann m (Language f0 f1 f2 f3 f4 f5 f6 f7 ann)
+        => Cofree8'  f0 f1 f2 f3 f4 f5 f6 f7  n old
+        -> StateT ann m (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann)
 initAnn = traverseAll (const getFresh)
 
 type Range n = (n, n)
@@ -154,7 +152,7 @@ index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
-path :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
+path :: Language f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
 path l = foldPoly ntfCls (\x -> case (ann, x) of
     ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
@@ -163,7 +161,7 @@ path l = foldPoly ntfCls (\x -> case (ann, x) of
   where ann = getAnn l
 
 local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-      .  (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+      .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
       => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
       -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 local f = do
@@ -183,28 +181,36 @@ local f = do
 
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-       .  (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+       .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 ascend = (getAnn <$> get) >>= \case
-  (a, Select _) -> mzero
-  (a, Descend i) -> go0 where
+  (_, Select _) -> mzero
+  (_, Descend i) -> go0 where
     go0 :: forall n
-        . (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+        . (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-    go0 = mapStatePoly ntfCls $ do
-      nt <- get
-      unless (canDescend nt) $ error "path is too deep" -- error not fail!
-      let go :: forall n'
-             .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-            -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-          go x = PairT $ case getAnn x of
-            (a, Select _)  -> return (True, x)
-            (a, Descend i) -> runStateT (ascend >> return False) x
-      (a, s) <- lift $ unPairT $ modifyC nt i go go go go go go go go
-      put s
+    go0 = do
+      annFun <- mapStatePoly ntfCls $ do
+        nt <- get
+        unless (canDescend nt) $ error "path is too deep" -- error not fail!
+        let go :: forall n'
+               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+              -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+            go x = PairT $ case getAnn x of
+              (a, Select _)  -> return (True, x)
+              (a, Descend i) -> runStateT (go0 >> return False) x
+        (nextDepth, nt') <- lift $ unPairT $ modifyC nt i go go go go go go go go
+        put nt'
+        let sel' = Select $ if canSelectRange nt
+                            then Range (i + 1, i + 1)
+                            else Single $ i + 1
+        return $ if nextDepth
+                 then modifyAnn (second $ const sel')
+                 else id
+      modify annFun
 
 -- | Descend into selection, if only one element is selected
-descend :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+descend :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 descend = local $ do
   _ <- guardSingle
@@ -215,11 +221,11 @@ descend = local $ do
   return ()
 
 -- | Go back to editing parent, right of current position
-pop :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+pop :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
     => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 pop = ascend >> selectNoneEnd
 
-localMove :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+localMove :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => (Int -> Tip Int -> Maybe (Tip Int))
           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 localMove f = local $ do
@@ -234,68 +240,83 @@ localMove f = local $ do
     return tip'
   modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
 
-localMoveR :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+localMoveR :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => (Int -> Range Int -> Range Int)
            -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 localMoveR f = localMove $ \x -> \case
   Single _ -> Nothing
   Range  y -> Just $ Range $ f x y
 
-switchBounds :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+switchBounds :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
              => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 switchBounds = localMoveR $ \_ (start, end) -> (end, start)
 
-startMin :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+startMin :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 startMin = localMoveR $ \ _ (_, end) -> (0, end)
 
-endMax :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+endMax :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 endMax = localMoveR $ \ size (start, _) -> (start, size)
 
-selectAll :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectAll :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectAll = localMoveR $ \ size (_, end) -> (0, size)
 
-selectNoneStart :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectNoneStart :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
                 => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectNoneStart = localMoveR $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectNoneEnd :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
               => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectNoneEnd = localMoveR $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+shiftLeft :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 shiftLeft = localMove $ const $ Just . \case
   Single pos         -> Single $ pos - 1
   Range (start, end) -> Range (start - 1, end - 1)
 
-shiftRight :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+shiftRight :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 shiftRight = localMove $ const $ Just . \case
   Single pos         -> Single $ pos + 1
   Range (start, end) -> Range (start + 1, end + 1)
 
-moveLeft :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+moveLeft :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 moveLeft = localMoveR $ \ _ (start, end) -> (start, end - 1)
 
-moveRight :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+moveRight :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 moveRight = localMoveR $ \ _ (start, end) -> (start, end + 1)
 
-unCursor :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
+unCursor :: Language f0 f1 f2 f3 f4 f5 f6 f7
          => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
 unCursor = mapAll fst
 
-initCursor :: Langauge f0 f1 f2 f3 f4 f5 f6 f7
+initCursor :: forall f0 f1 f2 f3 f4 f5 f6 f7  n ann
+           .  Language f0 f1 f2 f3 f4 f5 f6 f7
            => Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
            -> Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
-initCursor = mapAll (, Select (Single 0)) -- TODO Pick Correct Selection Type
+initCursor = go . mapAll (\ann -> (ann, undefined)) where
+  go :: forall f0 f1 f2 f3 f4 f5 f6 f7  n ann
+     .  Language f0 f1 f2 f3 f4 f5 f6 f7
+     => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
+     -> Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
+  go e = modifyAnn (second $ const sel') e'
+    where
+      (useRange, e') = mapPolyF ntfCls go1 e 
+      go1 :: forall f . NonTerminal f
+          => Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7  (ann, Selection)
+          -> (Bool, Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7  (ann, Selection))
+      go1 nt = (canSelectRange nt, mapFPoly go nt)
+      sel' = Select $ if useRange
+                      then Range (0, 0)
+                      else Single 0
 
-isEmpty :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+isEmpty :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Bool
 isEmpty = local $ do
   (_, Select sel) <- getAnn <$> get
@@ -303,7 +324,7 @@ isEmpty = local $ do
     Single _           -> False
     Range (start, end) -> start == end
 
-guardSingle :: (Langauge f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+guardSingle :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
             => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Word
 guardSingle = do
   (_, Select sel) <- getAnn <$> get
@@ -314,4 +335,4 @@ guardSingle = do
 
 class ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
       , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
-      => Langauge f0 f1 f2 f3 f4 f5 f6 f7 where
+      => Language f0 f1 f2 f3 f4 f5 f6 f7 where

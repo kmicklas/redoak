@@ -26,7 +26,7 @@ data Editor
   = Editor
     { mode :: !Mode
     , currentId :: !Word
-    , cursor :: Cursor Text Word
+    , cursor :: Cursor' Text Word
     , clipboard :: Trunk Text ()
     }
   --deriving (Eq, Ord, Show)
@@ -40,11 +40,11 @@ initState :: Editor
 initState = Editor
   { mode = Normal
   , currentId = 1
-  , cursor = (0, Select (0, 0)) :< Node []
+  , cursor = (0, Select $ Range (0, 0)) :< Node []
   , clipboard = Node []
   }
 
-apply :: EditT (State Word) Text Word a -> State Editor a
+apply :: EditT' (State Word) Text Word a -> State Editor a
 apply e = do
   s <- get
   let ((r, c'), id') = runState (runStateT e $ cursor s) $ currentId s
@@ -72,7 +72,7 @@ paste = do
   apply $ change $ second initCursor $ new
 
 deleteBackward :: (IsSequence a, Fresh ann, Monad m)
-               => MaybeEditT (StateT ann m) a ann ()
+               => MaybeEditT' (StateT ann m) a ann ()
 deleteBackward = do
   e <- isEmpty
   if e
@@ -80,7 +80,7 @@ deleteBackward = do
   else justEdit delete
 
 deleteForward :: (IsSequence a, Fresh ann, Monad m)
-              => MaybeEditT (StateT ann m) a ann ()
+              => MaybeEditT' (StateT ann m) a ann ()
 deleteForward = do
   e <- isEmpty
   if e
@@ -88,18 +88,18 @@ deleteForward = do
   else justEdit delete
 
 pushNode :: (IsSequence a, Fresh ann, Monad m)
-            => MaybeEditT (StateT ann m) a ann ()
+            => MaybeEditT' (StateT ann m) a ann ()
 pushNode = do
   a <- isInAtom
   if a
   then pop >> justEdit push
   else justEdit push
 
-selectOne :: (IsSequence a, Monad m) => MaybeEditT m a ann ()
+selectOne :: (IsSequence a, Monad m) => MaybeEditT' m a ann ()
 selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
 
 insert :: (IsSequence a, Fresh ann, Monad m)
-       => a -> MaybeEditT (StateT ann m) a ann ()
+       => a -> MaybeEditT' (StateT ann m) a ann ()
 insert text = do
   justEdit (change $ Atom text)
   justEdit (tryEdit $ descend >> endMax)
