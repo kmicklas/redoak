@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -74,6 +76,16 @@ data Cofree8
       -> Cofree8Inner f7  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7
       -> Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  7  a0 a1 a2 a3 a4 a5 a6 a7
 
+deriving instance ( Show (Cofree8Inner f0  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f1  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f2  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f3  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f4  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f5  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f6  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show (Cofree8Inner f7  f0 f1 f2 f3 f4 f5 f6 f7  a0 a1 a2 a3 a4 a5 a6 a7)
+                  , Show a0, Show a1, Show a2, Show a3, Show a4, Show a5, Show a6, Show a7)
+                  => Show (Cofree8 f0 f1 f2 f3 f4 f5 f6 f7  n  a0 a1 a2 a3 a4 a5 a6 a7)
 
 mapFPoly :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
             , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7
