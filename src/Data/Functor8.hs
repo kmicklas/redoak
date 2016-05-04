@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE EmptyDataDecls #-}
 module Data.Functor8 where
@@ -20,6 +21,9 @@ class Functor8 f where
 
 
 data Void8 a0 a1 a2 a3 a4 a5 a6 a7
+deriving instance Eq (Void8 a0 a1 a2 a3 a4 a5 a6 a7)
+deriving instance Ord (Void8 a0 a1 a2 a3 a4 a5 a6 a7)
+deriving instance Show (Void8 a0 a1 a2 a3 a4 a5 a6 a7)
 
 instance Functor8 Void8 where
   map8 _ _ _ _ _ _ _ _ x = case x of { }

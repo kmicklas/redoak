@@ -22,6 +22,7 @@ import           Prelude hiding (foldr)
 import           Control.Comonad.Cofree8
 
 import           Redoak.Rectangle
+import           Redoak.Language
 import           Redoak.Language.Fundamental
 import           Redoak.Tree.Range
 import           Redoak.View
@@ -67,23 +68,23 @@ type View'       r = View       (BaseNum r)
 type LayoutAtom' r = LayoutAtom (BaseNum r)
 type LayoutDim'  r = LayoutDim  (BaseNum r)
 
-layout :: Rules r => Width' r -> Cursor Text Word -> r (View' r)
+layout :: Rules r => Width' r -> Cursor' Text Word -> r (View' r)
 layout maxWidth c = do
   layoutFull maxWidth <$> computeFull <$> inlineAtoms (highlightSelection c)
 
-highlightSelection :: Cursor Text Word -> Layout
+highlightSelection :: Cursor' Text Word -> Layout
 highlightSelection = justTheTip . highlightPath True
   where
     justTheTip :: Tree Text ((Word, Selection), Bool) -> Layout
     justTheTip = mapAll $ \ ((id, sel), onPath) -> LayoutInfo
       { Redoak.Layout.ident = id
       , Redoak.Layout.selection = case (onPath, sel) of
-          (True, Select r) -> Just r
-          _                -> Nothing
+          (True, Select (Range r)) -> Just r
+          _                        -> Nothing
       }
 
     highlightPath :: Bool
-             -> Cursor Text Word
+             -> Cursor' Text Word
              -> Tree Text ((Word, Selection), Bool)
     highlightPath onPath (a@(_, sel) :< e) = ((a, onPath) :<) $ case e of
       Atom a  -> Atom a

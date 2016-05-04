@@ -24,6 +24,7 @@ import           Redoak.Event
 import           Redoak.Layout
 import           Redoak.Layout.Identity
 import           Redoak.Rectangle
+import           Redoak.Language
 import           Redoak.Language.Fundamental
 import           Redoak.Tree.Range
 import           Redoak.View
@@ -56,8 +57,12 @@ editor keys = do
           _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
           return ()
     elAttr "footer" ("id" =: "status") $ do
-      let pathString (is, (start, end)) =
+      let pathString (is, tip) =
             Data.List.intercalate ", " $ (fmap show is) ++
-            [show start ++ if start == end then "" else "-" ++ show end]
+            [case tip of
+                Single pos -> show pos
+                Range (start, end) ->
+                  show start ++ if start == end then "" else "-" ++ show end
+            ]
       spanId "path" $ dynText =<< mapDyn (pathString . path . cursor) stateStream
       spanId "mode" $ dynText =<< mapDyn (show . mode) stateStream
