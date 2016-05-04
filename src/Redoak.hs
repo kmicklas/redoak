@@ -53,7 +53,7 @@ editor keys = do
           let layout' (w, c) = layout (W $ floor $ w / 15) c
           _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
           return ()
-    divId "status" $ do
+    elAttr "footer" ("id" =: "status") $ do
       let pathString (is, tip) =
             Data.List.intercalate ", " $ (fmap show is) ++
             [case tip of

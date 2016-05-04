@@ -121,6 +121,5 @@ div.atom-selection {
 }
 
 #mode {
-  position: fixed;
-  right: 0px;
+  float: right;
 }
