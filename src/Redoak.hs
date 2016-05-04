@@ -43,7 +43,10 @@ editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = do
   stateStream <- foldDyn (flip $ foldl (flip handleEvent)) initState keys
   divId "editor" $ do
-    rec (resizeEvent, contentEl) <- resizeDetector $ divId' "content" $ do
+    rec (resizeEvent, contentEl) <- resizeDetectorWithStyle
+                                    -- TODO replace 93 with something like "availible"
+                                    "width: 100%; height: 93%; margin: 0; padding 0"
+                                    $ divId' "content" $ do
           dimensionsDyn <- do
             let getDim = getClientWidth $ _el_element contentEl
                 getDimActions = flip fmap resizeEvent $ \() -> getDim
