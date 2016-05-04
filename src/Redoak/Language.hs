@@ -202,7 +202,7 @@ ascend = (getAnn <$> get) >>= \case
         (nextDepth, nt') <- lift $ unPairT $ modifyC nt i go go go go go go go go
         put nt'
         let sel' = Select $ if canSelectRange nt
-                            then Range (i + 1, i + 1)
+                            then Range (i, i + 1)
                             else Single $ i + 1
         return $ if nextDepth
                  then modifyAnn (second $ const sel')
