@@ -111,6 +111,7 @@ mapIsSequence :: forall a n
               -> Element a n
 mapIsSequence f = \case
   Atom a -> Atom $ f a
+  Node s -> Node $ f s
 
 
 instance IsSequence a => NonTerminal (LiftBf8 Element a) where
