@@ -235,7 +235,7 @@ localMove f = local $ do
     let len = fromIntegral $ Redoak.Language.length nt
     tip' <- lift $ MaybeT $ return $ f len $ fromIntegral <$> tip
     guard $ case tip' of
-      Single p           -> p < len
+      Single p           -> 0 <= p && p < len
       Range (start, end) -> min start end > 0 && max start end < len
     return tip'
   modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
