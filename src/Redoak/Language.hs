@@ -19,10 +19,7 @@ import Data.Constraint
 import Data.Functor.Identity
 import Data.Map
 import Data.Maybe as M
-import Data.Proxy
-import Data.Text hiding (index)
-import Data.Type.Equality
-import Data.Void
+import Data.Text (Text)
 
 import Control.Comonad.Cofree8
 import Data.Functor8
@@ -184,41 +181,38 @@ ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
        .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 ascend = (getAnn <$> get) >>= \case
-  (_, Select _) -> mzero
-  (_, Descend i) -> go0 where
+    (_, Select _) -> mzero
+    (_, Descend i) -> go0 i
+  where
     go0 :: forall n
         . (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
-        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-    go0 = do
-      annFun <- mapStatePoly ntfCls $ do
+        => Word
+        -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+    go0 i = do
+      (foundIt, useRange) <- mapStatePoly ntfCls $ do
         nt <- get
         unless (canDescend nt) $ error "path is too deep" -- error not fail!
         let go :: forall n'
                .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-              -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+               -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
             go x = PairT $ case getAnn x of
               (a, Select _)  -> return (True, x)
-              (a, Descend i) -> runStateT (go0 >> return False) x
+              (a, Descend i') -> runStateT (go0 i' >> return False) x
         (nextDepth, nt') <- lift $ unPairT $ modifyC nt i go go go go go go go go
         put nt'
-        let sel' = Select $ if canSelectRange nt
-                            then Range (i, i + 1)
-                            else Single $ i + 1
-        return $ if nextDepth
-                 then modifyAnn (second $ const sel')
-                 else id
-      modify annFun
+        return (nextDepth, canSelectRange nt')
+      when foundIt $ modify $ modifyAnn $ second $ \(Descend _) ->
+        Select $ if useRange
+                 then Range (i, i + 1)
+                 else Single $ i + 1
 
 -- | Descend into selection, if only one element is selected
 descend :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 descend = local $ do
-  _ <- guardSingle
-  guard =<< (foldPoly ntfCls canDescend) <$> get
-  modify $ modifyAnn $ second $ \(Select x) -> Descend $ case x of
-    Single pos         -> pos
-    Range (start, end) -> min start end
-  return ()
+  i <- guardSingle
+  guard =<< foldPoly ntfCls canDescend <$> get
+  modify $ modifyAnn $ second $ \(Select _) -> Descend i
 
 -- | Go back to editing parent, right of current position
 pop :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
@@ -236,7 +230,7 @@ localMove f = local $ do
     tip' <- lift $ MaybeT $ return $ f len $ fromIntegral <$> tip
     guard $ case tip' of
       Single p           -> 0 <= p && p < len
-      Range (start, end) -> min start end > 0 && max start end < len
+      Range (start, end) -> min start end >= 0 && max start end <= len
     return tip'
   modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
 
