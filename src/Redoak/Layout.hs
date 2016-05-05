@@ -24,7 +24,6 @@ import           Control.Comonad.Cofree8
 import           Redoak.Rectangle
 import           Redoak.Language
 import           Redoak.Language.Fundamental
-import           Redoak.Tree.Range
 import           Redoak.View
 
 

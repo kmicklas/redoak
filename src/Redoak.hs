@@ -26,7 +26,6 @@ import           Redoak.Layout.Identity
 import           Redoak.Rectangle
 import           Redoak.Language
 import           Redoak.Language.Fundamental
-import           Redoak.Tree.Range
 import           Redoak.View
 
 
