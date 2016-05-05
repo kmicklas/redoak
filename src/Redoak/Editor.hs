@@ -117,8 +117,10 @@ onEvent = \case
 
   KeyStroke Down Tab (Modifiers _ _ False) -> apply $ tryEdit pushNode
 
-  KeyStroke Down ArrowLeft  _ -> apply $ tryEdit shiftLeft
-  KeyStroke Down ArrowRight _ -> apply $ tryEdit shiftRight
+  KeyStroke Down ArrowLeft  (Modifiers _ _ False) -> apply $ tryEdit shiftLeft
+  KeyStroke Down ArrowRight (Modifiers _ _ False) -> apply $ tryEdit shiftRight
+  KeyStroke Down ArrowLeft  (Modifiers _ _ True)  -> apply $ tryEdit moveLeft
+  KeyStroke Down ArrowRight (Modifiers _ _ True)  -> apply $ tryEdit moveRight
   KeyStroke Down ArrowUp    _ -> apply $ tryEdit ascend
   KeyStroke Down ArrowDown  _ -> apply $ tryEdit descend
 
