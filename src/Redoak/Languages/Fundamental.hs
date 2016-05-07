@@ -117,8 +117,6 @@ mapIsSequence f = \case
 instance IsSequence a => NonTerminal (LiftBf8 Element a) where
   length (LiftBf8 e) = fromIntegral $ elimIsSequence olength e
 
-  introductions = Data.Map.empty
-
   canSelectRange _ = True
 
   canDescend (LiftBf8 e) = case e of
@@ -133,6 +131,9 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
     Atom _ -> undefined
     Node s -> LiftBf8 <$> Node <$> flip (S.update i') s <$> k (S.index s i')
       where i' = fromIntegral i
+
+instance IsSequence a => Completable (LiftBf8 Element a) where
+  introductions = Data.Map.empty
 
 instance IsSequence a
          => Language Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element a) where

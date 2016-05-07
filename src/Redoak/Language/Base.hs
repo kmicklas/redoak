@@ -7,9 +7,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import Data.Constraint
 import Data.Functor.Identity
-import Data.Map
 import Data.Maybe as M
-import Data.Text (Text)
 
 import Control.Comonad.Cofree8
 import Data.Functor8
@@ -19,9 +17,6 @@ import Data.Traversable8
 class Traversable8 f => NonTerminal f where
   -- | Number of children
   length :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Word
-
-  -- | Introduction rules for auto-complete
-  introductions :: Map Text (f () () () () () () () ())
 
   -- | Can we select a range of adjacent children or only a single child at a time?
   canSelectRange :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Bool

@@ -16,5 +16,5 @@ instance NonTerminal Void8 where
   indexC         = \case {}
   modifyC        = \case {}
 
+instance Completable Void8 where
   introductions = Data.Map.empty
-
