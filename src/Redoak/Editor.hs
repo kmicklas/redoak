@@ -19,7 +19,7 @@ import Data.Text hiding (copy)
 
 import Redoak.Event
 import Redoak.Language
-import Redoak.Language.Fundamental
+import Redoak.Languages.Fundamental
 
 
 data Editor
@@ -150,7 +150,7 @@ onEventNormal = \case
   KeyPress 'v' -> paste
 
   KeyPress 'n' -> apply insertNode
-  KeyPress 'r' -> apply Redoak.Language.Fundamental.reverse
+  KeyPress 'r' -> apply Redoak.Languages.Fundamental.reverse
 
   KeyPress 'w' -> apply wrap
   KeyPress 'e' -> apply $ tryEdit unwrap

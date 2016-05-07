@@ -23,7 +23,7 @@ import           Control.Comonad.Cofree8
 
 import           Redoak.Rectangle
 import           Redoak.Language
-import           Redoak.Language.Fundamental
+import           Redoak.Languages.Fundamental
 import           Redoak.View
 
 

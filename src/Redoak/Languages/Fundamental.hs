@@ -9,7 +9,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
-module Redoak.Language.Fundamental where
+module Redoak.Languages.Fundamental where
 
 import Control.Lens hiding ((:<))
 import Control.Lens.TH
@@ -34,7 +34,7 @@ import Data.Foldable8
 import Data.Traversable8
 
 import Redoak.Language
-import Redoak.Language.Empty
+import Redoak.Languages.Empty
 
 
 data Element a b

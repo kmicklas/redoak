@@ -1,5 +1,5 @@
 {-# LANGUAGE EmptyCase #-}
-module Redoak.Language.Empty where
+module Redoak.Languages.Empty where
 
 import Data.Map (empty)
 
