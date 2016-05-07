@@ -25,13 +25,15 @@ index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
-path :: Language f0 f1 f2 f3 f4 f5 f6 f7
+path :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+     .  Language f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
-path l = foldPoly ntfCls (\x -> case (ann, x) of
+path l = foldPoly ntfCls go l where
+  go :: forall f . NonTerminal f
+     => Cofree8Inner' f f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection) -> Path
+  go x = case (getAnn l, x) of
     ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
-    ((_, Select r),  _)  -> ([], r))
-  l
-  where ann = getAnn l
+    ((_, Select r),  _)  -> ([], r)
 
 local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
       .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
