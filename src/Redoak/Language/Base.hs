@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Redoak.Language.Base where
 
@@ -12,6 +15,7 @@ import Control.Comonad.Cofree8
 import Data.Functor8
 import Data.Traversable8
 
+import Redoak.Event
 
 class Traversable8 f => NonTerminal f where
   -- | Number of children
@@ -45,9 +49,9 @@ class Traversable8 f => NonTerminal f where
 
 instance Class (Functor8 f) (NonTerminal f) where cls = Sub Dict
 
-class ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
-      , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
-      => Language f0 f1 f2 f3 f4 f5 f6 f7 where
+type NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7 =
+  ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
+  , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
 
 class Fresh a where
   fresh :: a -> a
