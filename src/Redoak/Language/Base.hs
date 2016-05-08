@@ -116,19 +116,3 @@ assumeMaybeEdit :: Monad m
                 => RawEditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
                 -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT
-
-type Term f0 f1 f2 f3 f4 f5 f6 f7 n =
-  Cofree8'
-    f0 f1 f2 f3 f4 f5 f6 f7
-    n
-    (Ann f0 f1 f2 f3 f4 f5 f6 f7)
-
-class NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
-      => Language f0 f1 f2 f3 f4 f5 f6 f7 where
-
-  type Ann f0 f1 f2 f3 f4 f5 f6 f7 :: *
-
-  type Accum f0 f1 f2 f3 f4 f5 f6 f7 :: *
-
-  handleEvent :: State (Accum f0 f1 f2 f3 f4 f5 f6 f7)
-                       (Term  f0 f1 f2 f3 f4 f5 f6 f7 7)

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -13,6 +14,8 @@ module Redoak.Languages.Fundamental where
 
 import Control.Lens hiding ((:<))
 import Control.Lens.TH
+import Control.Monad
+import Control.Monad.Identity
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
@@ -21,11 +24,13 @@ import Data.Bifunctor
 import Data.Bifunctor.TH
 import Data.Bitraversable
 import Data.Coerce
-import Data.Map
+import Data.Map (Map, fromList, empty)
+import Data.Maybe
 import Data.MonoTraversable hiding (Element)
 import Data.Monoid
 import Data.Sequence as S hiding ((:<))
 import Data.Sequences as SS
+import Data.Text as T hiding (copy)
 import Data.Void
 
 import Control.Comonad.Cofree8
@@ -33,6 +38,7 @@ import Data.Functor8
 import Data.Foldable8
 import Data.Traversable8
 
+import Redoak.Event
 import Redoak.Language
 import Redoak.Languages.Empty
 
@@ -135,9 +141,6 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
 instance IsSequence a => Completable (LiftBf8 Element a) where
   introductions = Data.Map.empty
 
-instance IsSequence a
-         => Language Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element a) where
-
 type Cursor' a ann = Tree a (ann, Selection)
 
 type EditT' m a ann r = StateT (Cursor' a ann) m r
@@ -145,7 +148,7 @@ type Edit' a ann r = EditT' Identity a ann r
 type MaybeEditT' m a ann r = EditT' (MaybeT m) a ann r
 type MaybeEdit' m a ann r = MaybeEditT' Identity a ann r
 
-  
+
 isInAtom :: (IsSequence a, Monad m) => EditT' m a ann Bool
 isInAtom = local $ do
   _ `CF7` (LiftBf8 e) <- get
@@ -261,3 +264,167 @@ unwrap = do
 -- | Create new node, edit at begining of it
 push :: (IsSequence a, Fresh ann, Monad m) => EditT' (StateT ann m) a ann ()
 push = insertNode >> assumeMaybeEdit descend
+
+
+instance Language Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) where
+
+  type Ann Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) = Word
+
+  type Accum Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) = Editor
+
+  handleEvent e = fmap snd $ runState $ do
+    onEvent e
+    get >>= return . mode . snd >>= \case
+      Insert -> onEventInsert e
+      Normal -> onEventNormal e
+
+  getMessage (_, s) = "Fundamental: " <> (T.pack $ show $ mode s)
+
+type Ann'   = Ann   Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text)
+type Accum' = Accum Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text)
+type Term'  = Term  Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) 7
+
+type Accum'' = (Term' , Accum')
+
+data Editor
+  = Editor
+    { mode :: !Mode
+    , currentId :: !Word
+    --, cursor :: Cursor' Text Word
+    , clipboard :: Trunk Text ()
+    }
+  --deriving (Eq, Ord, Show)
+
+data Mode
+  = Normal
+  | Insert
+  deriving (Eq, Ord, Show)
+
+initState :: Accum''
+initState = ( (0, Select $ Range (0, 0)) :< Node []
+            , Editor
+              { mode = Normal
+              , currentId = 1
+              , clipboard = Node []
+              })
+  where x = (0, Select $ Range (0, 0)) :< Node []
+
+apply :: EditT' (State Word) Text Word a -> State Accum'' a
+apply e = do
+  (c, s) <- get
+  let ((r, c'), id') = runState (runStateT e $ c) $ currentId s
+  put $ (c', s { currentId = id' })
+  return r
+
+inMode :: Mode -> State Accum'' () -> State Accum'' ()
+inMode m a = do
+  (_, s) <- get
+  when (mode s == m) a
+
+gotoMode :: Mode -> State Accum'' ()
+gotoMode m = modify $ second $ \ s -> s { mode = m }
+
+copy :: State Accum'' ()
+copy = do
+  sel <- fmap clearAnn <$> apply getSelection
+  modify $ fmap $ \s -> s { clipboard = sel }
+
+paste :: State Accum'' ()
+paste = do
+  (_, s) <- get
+  new <- apply $ lift $ mapM initAnn $ clipboard s
+  apply $ change $ second initCursor $ new
+
+deleteBackward :: (IsSequence a, Fresh ann, Monad m)
+               => MaybeEditT' (StateT ann m) a ann ()
+deleteBackward = do
+  e <- isEmpty
+  if e
+  then moveLeft >> justEdit delete
+  else justEdit delete
+
+deleteForward :: (IsSequence a, Fresh ann, Monad m)
+              => MaybeEditT' (StateT ann m) a ann ()
+deleteForward = do
+  e <- isEmpty
+  if e
+  then moveRight >> justEdit delete
+  else justEdit delete
+
+pushNode :: (IsSequence a, Fresh ann, Monad m)
+            => MaybeEditT' (StateT ann m) a ann ()
+pushNode = do
+  a <- isInAtom
+  if a
+  then pop >> justEdit push
+  else justEdit push
+
+selectOne :: (IsSequence a, Monad m) => MaybeEditT' m a ann ()
+selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
+
+insert :: (IsSequence a, Fresh ann, Monad m)
+       => a -> MaybeEditT' (StateT ann m) a ann ()
+insert text = do
+  justEdit (change $ Atom text)
+  justEdit (tryEdit $ descend >> endMax)
+  selectNoneEnd
+
+onEvent :: KeyEvent -> State Accum'' ()
+onEvent = \case
+
+  KeyStroke Down Tab (Modifiers _ _ False) -> apply $ tryEdit pushNode
+
+  KeyStroke Down ArrowLeft  (Modifiers _ _ False) -> apply $ tryEdit shiftLeft
+  KeyStroke Down ArrowRight (Modifiers _ _ False) -> apply $ tryEdit shiftRight
+  KeyStroke Down ArrowLeft  (Modifiers _ _ True)  -> apply $ tryEdit moveLeft
+  KeyStroke Down ArrowRight (Modifiers _ _ True)  -> apply $ tryEdit moveRight
+  KeyStroke Down ArrowUp    _ -> apply $ tryEdit ascend
+  KeyStroke Down ArrowDown  _ -> apply $ tryEdit descend
+
+  KeyStroke Down Backspace _ -> apply $ tryEdit deleteBackward
+  KeyStroke Down Delete    _ -> apply $ tryEdit deleteForward
+
+  _ -> return ()
+
+onEventNormal :: KeyEvent -> State Accum'' ()
+onEventNormal = \case
+
+  KeyPress 'i' -> apply $ tryEdit ascend
+  KeyPress 'k' -> apply $ tryEdit descend
+  KeyPress 'j' -> apply $ tryEdit shiftLeft
+  KeyPress 'l' -> apply $ tryEdit shiftRight
+  KeyPress 'J' -> apply $ tryEdit moveLeft
+  KeyPress 'L' -> apply $ tryEdit moveRight
+
+  KeyPress 'a' -> apply $ tryEdit selectAll
+  KeyPress 's' -> apply $ tryEdit switchBounds
+  KeyPress 'd' -> apply delete
+  KeyPress 'f' -> apply $ tryEdit selectNoneEnd
+  KeyPress 'g' -> apply $ tryEdit selectOne
+
+  KeyPress 'c' -> copy
+  KeyPress 'x' -> copy >> apply delete
+  KeyPress 'v' -> paste
+
+  KeyPress 'n' -> apply insertNode
+  KeyPress 'r' -> apply Redoak.Languages.Fundamental.reverse
+
+  KeyPress 'w' -> apply wrap
+  KeyPress 'e' -> apply $ tryEdit unwrap
+
+  KeyPress 'h' -> gotoMode Insert
+
+  _ -> return ()
+
+onEventInsert :: KeyEvent -> State Accum'' ()
+onEventInsert = \case
+
+  KeyStroke Down Enter (Modifiers _ _ False) -> gotoMode Normal
+  KeyStroke Down Space (Modifiers _ _ False) -> apply $ tryEdit pop
+
+  KeyStroke Down Enter (Modifiers _ _ True) -> apply $ tryEdit $ insert "\n"
+  KeyStroke Down Space (Modifiers _ _ True) -> apply $ tryEdit $ insert " "
+  KeyStroke Down Tab   (Modifiers _ _ True) -> apply $ tryEdit $ insert "\t"
+
+  KeyPress c -> apply $ tryEdit $ insert [c]
+  _ -> return ()

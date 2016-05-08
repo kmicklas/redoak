@@ -10,10 +10,12 @@ module Redoak
 
 import           Control.Monad.Identity
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.State
 import           Data.List
 import           Data.List.NonEmpty
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.Foldable
 import           GHCJS.DOM.Document (Document)
 import           GHCJS.DOM.Element (getClientWidth)
 import           Reflex
@@ -25,7 +27,6 @@ import           Redoak.Layout
 import           Redoak.Layout.Identity
 import           Redoak.Rectangle
 import           Redoak.Language
-import           Redoak.Languages.Fundamental
 import           Redoak.View
 
 
@@ -40,7 +41,9 @@ spanId id = elAttr "span" ("id" =: id)
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = do
-  stateStream <- foldDyn (flip $ foldl (flip handleEvent)) initState keys
+  (cursors, stati) <- splitDyn
+    =<< mapDyn splitMultiplexed
+    =<< foldDyn handleEvents initState keys
   divId "editor" $ do
     rec (resizeEvent, contentEl) <- resizeDetectorWithStyle
                                     -- TODO replace 93 with something like "availible"
@@ -50,8 +53,7 @@ editor keys = do
             let getDim = getClientWidth $ _el_element contentEl
                 getDimActions = flip fmap resizeEvent $ \() -> getDim
             widgetHold (pure $ 99999999) getDimActions
-          cursorDyn <- mapDyn cursor stateStream
-          zipped <- combineDyn (,) dimensionsDyn cursorDyn
+          zipped <- combineDyn (,) dimensionsDyn cursors
           let layout' (w, c) = layout (W $ floor $ w / 15) c
           _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
           return ()
@@ -63,5 +65,5 @@ editor keys = do
                 Range (start, end) ->
                   show start ++ if start == end then "" else "-" ++ show end
             ]
-      spanId "path" $ dynText =<< mapDyn (pathString . path . cursor) stateStream
-      spanId "mode" $ dynText =<< mapDyn (show . mode) stateStream
+      spanId "path" $ dynText =<< mapDyn (pathString . path) cursors
+      spanId "mode" $ dynText =<< mapDyn T.unpack stati
