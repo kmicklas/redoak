@@ -54,7 +54,7 @@ index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
 path :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-     .  Language f0 f1 f2 f3 f4 f5 f6 f7
+     .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
 path l = foldPoly ntfCls go l where
   go :: forall f . NonTerminal f
@@ -64,7 +64,7 @@ path l = foldPoly ntfCls go l where
     ((_, Select r),  _)  -> ([], r)
 
 local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-      .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+      .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
       => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
       -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 local f = do
@@ -84,14 +84,14 @@ local f = do
 
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-       .  (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+       .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 ascend = (getAnn <$> get) >>= \case
     (_, Select _) -> mzero
     (_, Descend i) -> go0 i
   where
     go0 :: forall n
-        . (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+        . (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => Word
         -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
     go0 i = do
@@ -113,7 +113,7 @@ ascend = (getAnn <$> get) >>= \case
                  else Single $ i + 1
 
 -- | Descend into selection, if only one element is selected
-descend :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+descend :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
         => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 descend = local $ do
   i <- guardSingle
@@ -121,11 +121,11 @@ descend = local $ do
   modify $ modifyAnn $ second $ \(Select _) -> Descend i
 
 -- | Go back to editing parent, right of current position
-pop :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+pop :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
     => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 pop = ascend >> selectNoneEnd
 
-localMove :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+localMove :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => (Int -> Tip Int -> Maybe (Tip Int))
           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 localMove f = local $ do
@@ -140,69 +140,69 @@ localMove f = local $ do
     return tip'
   modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
 
-localMoveR :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+localMoveR :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => (Int -> Range Int -> Range Int)
            -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 localMoveR f = localMove $ \x -> \case
   Single _ -> Nothing
   Range  y -> Just $ Range $ f x y
 
-switchBounds :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+switchBounds :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
              => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 switchBounds = localMoveR $ \_ (start, end) -> (end, start)
 
-startMin :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+startMin :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 startMin = localMoveR $ \ _ (_, end) -> (0, end)
 
-endMax :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+endMax :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 endMax = localMoveR $ \ size (start, _) -> (start, size)
 
-selectAll :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectAll :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectAll = localMoveR $ \ size (_, end) -> (0, size)
 
-selectNoneStart :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectNoneStart :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
                 => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectNoneStart = localMoveR $ \ _ (start, _) -> (start, start)
 
-selectNoneEnd :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+selectNoneEnd :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
               => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 selectNoneEnd = localMoveR $ \ _ (_, end) -> (end, end)
 
-shiftLeft :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+shiftLeft :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 shiftLeft = localMove $ const $ Just . \case
   Single pos         -> Single $ pos - 1
   Range (start, end) -> Range (start - 1, end - 1)
 
-shiftRight :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+shiftRight :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 shiftRight = localMove $ const $ Just . \case
   Single pos         -> Single $ pos + 1
   Range (start, end) -> Range (start + 1, end + 1)
 
-moveLeft :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+moveLeft :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 moveLeft = localMoveR $ \ _ (start, end) -> (start, end - 1)
 
-moveRight :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+moveRight :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 moveRight = localMoveR $ \ _ (start, end) -> (start, end + 1)
 
-unCursor :: Language f0 f1 f2 f3 f4 f5 f6 f7
+unCursor :: NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
          => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
 unCursor = mapAll fst
 
 initCursor :: forall f0 f1 f2 f3 f4 f5 f6 f7  n ann
-           .  Language f0 f1 f2 f3 f4 f5 f6 f7
+           .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
            => Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
            -> Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
 initCursor = go . mapAll (\ann -> (ann, undefined)) where
   go :: forall f0 f1 f2 f3 f4 f5 f6 f7  n ann
-     .  Language f0 f1 f2 f3 f4 f5 f6 f7
+     .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
      -> Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
   go e = modifyAnn (second $ const sel') e'
@@ -216,7 +216,7 @@ initCursor = go . mapAll (\ann -> (ann, undefined)) where
                       then Range (0, 0)
                       else Single 0
 
-isEmpty :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+isEmpty :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Bool
 isEmpty = local $ do
   (_, Select sel) <- getAnn <$> get
@@ -224,7 +224,7 @@ isEmpty = local $ do
     Single _           -> False
     Range (start, end) -> start == end
 
-guardSingle :: (Language f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+guardSingle :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
             => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann Word
 guardSingle = do
   (_, Select sel) <- getAnn <$> get
