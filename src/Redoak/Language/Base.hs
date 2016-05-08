@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Redoak.Language.Base where
 
@@ -56,6 +55,16 @@ class Fresh a where
 instance Fresh Word where
   fresh = (+ 1)
 
+type RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  StateT (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
+type RawEdit f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  RawEditT Identity f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+
+type MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  RawEditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+type MaybeRawEdit  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  MaybeRawEditT Identity  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+
 getFresh :: (Fresh a, Monad m) => StateT a m a
 getFresh = do
   i <- get
@@ -75,45 +84,18 @@ initAnn :: ( Traversable8 f0, Traversable8 f1, Traversable8 f2, Traversable8 f3
         -> StateT ann m (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann)
 initAnn = traverseAll (const getFresh)
 
-type Range n = (n, n)
-
-data Tip n
-  = Single n
-  | Range (Range n)
-  deriving (Eq, Ord, Show, Functor)
-
-data Selection
-  = Descend Word
-  | Select (Tip Word)
-  deriving (Eq, Ord, Show)
-
-type Path = ([Word], Tip Word)
-
-type Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann =
-  Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n (ann, Selection)
-
-type EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
-  StateT (Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
-type Edit f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
-  EditT Identity f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-
-type MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
-  EditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-type MaybeEdit  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
-  MaybeEditT Identity  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-
 diff :: Word -> Word -> Word
 diff a b = (max a b) - (min a b)
 
 justEdit :: Monad m
-         => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-         -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+         => RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+         -> MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 justEdit = mapStateT (MaybeT . fmap Just)
 
 maybeEdit :: Monad m
-          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-          -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-          -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+          => MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+          -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+          -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 maybeEdit try catch = do
   c <- get
   r <- lift $ runMaybeT $ runStateT try c
@@ -122,11 +104,11 @@ maybeEdit try catch = do
     Just (v, c') -> put c' >> return v
 
 tryEdit :: Monad m
-        => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-        -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
+        => MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+        -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
 tryEdit = flip maybeEdit $ return ()
 
 assumeMaybeEdit :: Monad m
-                => EditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-                -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+                => RawEditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+                -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 assumeMaybeEdit = mapStateT $ fmap fromJust . runMaybeT

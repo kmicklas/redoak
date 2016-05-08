@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -17,6 +18,33 @@ import Data.Functor8
 
 import Redoak.Language.Base
 
+
+type Range n = (n, n)
+
+data Tip n
+  = Single n
+  | Range (Range n)
+  deriving (Eq, Ord, Show, Functor)
+
+data Selection
+  = Descend Word
+  | Select (Tip Word)
+  deriving (Eq, Ord, Show)
+
+type Path = ([Word], Tip Word)
+
+type Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann =
+  Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n (ann, Selection)
+
+type EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  StateT (Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
+type Edit f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  EditT Identity f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+
+type MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  EditT (MaybeT m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+type MaybeEdit  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+  MaybeEditT Identity  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 
 ntfCls :: forall a. NonTerminal a :- Functor8 a
 ntfCls = cls
