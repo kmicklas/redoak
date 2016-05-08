@@ -40,6 +40,7 @@ import Data.Traversable8
 
 import Redoak.Event
 import Redoak.Language
+import Redoak.Language.DefaultInput
 import Redoak.Languages.Empty
 
 
@@ -272,7 +273,7 @@ instance Language Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Tex
 
   type Accum Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) = Editor
 
-  handleEvent e = fmap snd $ runState $ do
+  handleEvent e = runStateOnly $ do
     onEvent e
     get >>= return . mode . snd >>= \case
       Insert -> onEventInsert e
@@ -369,17 +370,11 @@ insert text = do
   justEdit (tryEdit $ descend >> endMax)
   selectNoneEnd
 
+orElse = flip fromMaybe
+
 onEvent :: KeyEvent -> State Accum'' ()
-onEvent = \case
-
+onEvent e = (apply <$> basicTraversal e) `orElse` case e of
   KeyStroke Down Tab (Modifiers _ _ False) -> apply $ tryEdit pushNode
-
-  KeyStroke Down ArrowLeft  (Modifiers _ _ False) -> apply $ tryEdit shiftLeft
-  KeyStroke Down ArrowRight (Modifiers _ _ False) -> apply $ tryEdit shiftRight
-  KeyStroke Down ArrowLeft  (Modifiers _ _ True)  -> apply $ tryEdit moveLeft
-  KeyStroke Down ArrowRight (Modifiers _ _ True)  -> apply $ tryEdit moveRight
-  KeyStroke Down ArrowUp    _ -> apply $ tryEdit ascend
-  KeyStroke Down ArrowDown  _ -> apply $ tryEdit descend
 
   KeyStroke Down Backspace _ -> apply $ tryEdit deleteBackward
   KeyStroke Down Delete    _ -> apply $ tryEdit deleteForward
