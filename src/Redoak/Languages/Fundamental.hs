@@ -279,7 +279,8 @@ instance Language Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Tex
       Insert -> onEventInsert e
       Normal -> onEventNormal e
 
-  getMessage (_, s) = "Fundamental: " <> (T.pack $ show $ mode s)
+  getMessage (_, s) = ( "Fundamental: " <> (T.pack $ show $ mode s)
+                      , return ())
 
 type Ann'   = Ann   Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text)
 type Accum' = Accum Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text)

@@ -11,6 +11,8 @@ module Redoak.Language
   ) where
 
 import Data.Text (Text)
+import Reflex
+import Reflex.Dom
 
 import Redoak.Event
 import Redoak.Language.Base
@@ -39,6 +41,8 @@ class NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
                  , Accum     f0 f1 f2 f3 f4 f5 f6 f7)
 
 
-  getMessage :: ( RootTerm  f0 f1 f2 f3 f4 f5 f6 f7
+  getMessage :: MonadWidget t m
+             => ( RootTerm  f0 f1 f2 f3 f4 f5 f6 f7
                 , Accum     f0 f1 f2 f3 f4 f5 f6 f7)
-             -> Text -- mode/status/whatever
+             -> ( Text  -- mode/status/whatever
+                , m ()) -- some widget to display

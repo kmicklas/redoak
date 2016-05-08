@@ -14,6 +14,8 @@ import           Data.Maybe
 import           Data.Sequence hiding ((:<))
 import           Data.Sequences (IsSequence)
 import           Data.Text (Text)
+import           Reflex
+import           Reflex.Dom
 
 import           Redoak.Event
 import           Redoak.Language
@@ -48,6 +50,9 @@ handleEvent' e = \case
 handleEvents :: NonEmpty KeyEvent -> Multiplexed -> Multiplexed
 handleEvents es a = foldl' (flip handleEvent') a es
 
-splitMultiplexed :: Multiplexed -> (Fundamental.Term', Text)
+splitMultiplexed :: MonadWidget t m
+                 => Multiplexed
+                 -> (Fundamental.Term', Text, m ())
 splitMultiplexed = \case
-  (Fundamental a) -> (fst a, getMessage a)
+  (Fundamental a) -> (fst a, t, w)
+    where (t, w) = getMessage a

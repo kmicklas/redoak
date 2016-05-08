@@ -40,30 +40,34 @@ spanId :: MonadWidget t m => String -> m a -> m a
 spanId id = elAttr "span" ("id" =: id)
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
-editor keys = do
-  (cursors, stati) <- splitDyn
-    =<< mapDyn splitMultiplexed
-    =<< foldDyn handleEvents initState keys
-  divId "editor" $ do
-    rec (resizeEvent, contentEl) <- resizeDetectorWithStyle
-                                    -- TODO replace 93 with something like "availible"
-                                    "width: 100%; height: 93%; margin: 0; padding 0"
-                                    $ divId' "content" $ do
-          dimensionsDyn <- do
-            let getDim = getClientWidth $ _el_element contentEl
-                getDimActions = flip fmap resizeEvent $ \() -> getDim
-            widgetHold (pure $ 99999999) getDimActions
-          zipped <- combineDyn (,) dimensionsDyn cursors
-          let layout' (w, c) = layout (W $ floor $ w / 15) c
-          _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
-          return ()
-    elAttr "footer" ("id" =: "status") $ do
-      let pathString (is, tip) =
-            Data.List.intercalate ", " $ (fmap show is) ++
-            [case tip of
-                Single pos -> show pos
-                Range (start, end) ->
-                  show start ++ if start == end then "" else "-" ++ show end
-            ]
-      spanId "path" $ dynText =<< mapDyn (pathString . path) cursors
-      spanId "mode" $ dynText =<< mapDyn T.unpack stati
+editor keys = divId "editor" $ do
+  (cursors, stati, widgets) <- do
+    states <- mapDyn splitMultiplexed =<< foldDyn handleEvents initState keys
+    (,,) <$> mapDyn (\(d,_,_) -> d) states
+         <*> mapDyn (\(_,d,_) -> d) states
+         <*> mapDyn (\(_,_,d) -> d) states
+
+  _ <- widgetHoldInternal (pure ()) $ updated widgets
+
+  rec (resizeEvent, contentEl) <- resizeDetectorWithStyle
+                                  -- TODO replace 93 with something like "availible"
+                                  "width: 100%; height: 93%; margin: 0; padding 0"
+                                  $ divId' "content" $ do
+        dimensionsDyn <- do
+          let getDim = getClientWidth $ _el_element contentEl
+              getDimActions = flip fmap resizeEvent $ \() -> getDim
+          widgetHold (pure $ 99999999) getDimActions
+        zipped <- combineDyn (,) dimensionsDyn cursors
+        let layout' (w, c) = layout (W $ floor $ w / 15) c
+        _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
+        return ()
+  elAttr "footer" ("id" =: "status") $ do
+    let pathString (is, tip) =
+          Data.List.intercalate ", " $ (fmap show is) ++
+          [case tip of
+              Single pos -> show pos
+              Range (start, end) ->
+                show start ++ if start == end then "" else "-" ++ show end
+          ]
+    spanId "path" $ dynText =<< mapDyn (pathString . path) cursors
+    spanId "mode" $ dynText =<< mapDyn T.unpack stati
