@@ -7,6 +7,7 @@ module Redoak.Language.Cursor where
 
 import Control.Monad
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import Data.Bifunctor
@@ -26,10 +27,12 @@ data Tip n
   | Range (Range n)
   deriving (Eq, Ord, Show, Functor)
 
-data Selection
-  = Descend Word
-  | Select (Tip Word)
-  deriving (Eq, Ord, Show)
+data SelectionInner n
+  = Descend n
+  | Select (Tip n)
+  deriving (Eq, Ord, Show, Functor)
+
+type Selection = SelectionInner Word
 
 type Path = ([Word], Tip Word)
 
@@ -143,16 +146,33 @@ adjustSelection :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
                 => (Int -> Tip Int -> m (Tip Int))
                 -> m ()
                 -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-adjustSelection f bad = do
-  (_, Select tip) <- getAnn <$> get
-  len <- fromIntegral <$> foldPoly ntfCls Redoak.Language.Base.length <$> get
-  tip' <- lift $ f len $ fromIntegral <$> tip
-  let valid = case tip' of
-        Single p           -> 0 <= p && p < len
-        Range (start, end) -> min start end >= 0 && max start end <= len
+adjustSelection f bad = catchInvalidNode
+  (do
+      (_, Select tip) <- getAnn <$> get
+      len <- fromIntegral <$> foldPoly ntfCls Redoak.Language.Base.length <$> get
+      tip' <- lift $ f len $ fromIntegral <$> tip
+      modify $ modifyAnn $ fmap $ \(Select _) -> Select $ fromIntegral <$> tip')
+  return
+  (lift bad)
+
+catchInvalidNode :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+                 => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann a
+                 -> (a -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ())
+                 -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+                 -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+catchInvalidNode edit good bad = do
+  (a, s') <- lift . runStateT edit =<< get
+  let (_, sel) = getAnn s'
+      len = foldPoly ntfCls Redoak.Language.Base.length s'
+  let valid = case sel of
+        Descend p                   -> 0 <= p && p < fromIntegral len
+        Select (Single p)           -> 0 <= p && p < fromIntegral len
+        Select (Range (start, end)) -> min start end >= 0 && max start end <= fromIntegral len
   if valid
-    then modify $ modifyAnn $ fmap $ \(Select _) -> Select $ fromIntegral <$> tip'
-    else lift bad
+    then do
+       put s'
+       good a
+    else bad
 
 localMoveR :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => (Int -> Range Int -> Range Int)
@@ -257,6 +277,64 @@ data LeafTraverseInternalError = SelectMultipleFatal
 
 data Direction = Leftwards | Rightwards
 
+-- | Leaf traversal helper
+leafMove :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+         .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+         => Direction
+         -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+leafMove direction = mapStateT exceptToMaybeT go0 where
+  incOrDec :: Num a => a -> a
+  incOrDec = case direction of
+        Leftwards  -> (flip (-) 1)
+        Rightwards -> (+ 1)
+  go0 :: forall n
+      . (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+      => EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+  go0 = (snd <$> getAnn <$> get) >>= \case
+    (Select t) -> do
+      pref <- case t of
+        Range (start, end) -> case diff start end of
+          0 -> return SelectNone
+          1 -> return SelectOne
+          _ -> lift $ throwE SelectMultipleFatal
+        Single _           -> return SelectOne
+      adjustSelection (const $ lift . return . fmap incOrDec) $ throwE $ EndofSelection pref
+
+    (Descend i) -> do
+      goSideways <- mapStatePoly ntfCls $ do
+        assertCanRecur
+        nt <- get
+        let go :: forall n'
+               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+               -> ExceptT LeafTraverseInternalError m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+            go x = (\((),s) -> s) <$> runStateT go0 x
+            recur = modifyC nt i go go go go go go go go
+        (nt', pref) <- lift $ flip mapExceptT recur $ fmap $ \case
+          Left SelectMultipleFatal   -> Left SelectMultipleFatal
+          Left (EndofSelection pref) -> Right (nt, Just pref)
+          Right nt'                  -> Right (nt', Nothing)
+        put nt'
+        return pref
+      useRange <- mapStatePoly ntfCls $ canSelectRange <$> get
+      case goSideways of
+        Nothing   -> return ()
+        Just pref -> catchInvalidNode
+
+          (modify $ modifyAnn $ second $ case (pref, useRange) of
+            (SelectNone, True)  -> const $ Select $ case direction of
+              Leftwards  -> Range (i, i)
+              Rightwards -> Range (i + 1, i + 1)
+            (SelectOne,  True)  -> const $ Select $ fmap incOrDec $ Range (i, i + 1)
+            (SelectOne,  False) -> const $ Select $ fmap incOrDec $ Single i
+            (SelectNone, False) -> const $ Select $ fmap incOrDec $ Single i)
+
+          (\() -> unless ((SelectNone, True) == (pref, useRange)) $ case direction of
+              Leftwards  -> descendAllInternal pref Rightwards
+              Rightwards -> descendAllInternal pref Leftwards)
+
+          (lift $ throwE $ EndofSelection pref)
+
+
 descendAll :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
            .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => SelectionPreference
@@ -283,7 +361,7 @@ descendAllInternal pref direction = do
         (True, True) -> Right $ case direction of
           Leftwards  -> 0       -- leftmost
           Rightwards -> len - 1 -- rightmost
-        (False, lenNonZero) -> Left $ case (tip, pref, lenNonZero, direction) of
+        (_, lenNonZero) -> Left $ case (tip, pref, lenNonZero, direction) of
           (Single _, _,          False, _)          -> Single 0
           (Single _, _,          True,  Leftwards)  -> Single 0
           (Single _, _,          True,  Rightwards) -> Single $ len - 1
