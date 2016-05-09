@@ -306,11 +306,7 @@ mapStatePoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
                  .  (Functor8 f, k f)
                  => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 a) m r)
              -> StateT (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n  a) m r
-mapStatePoly prf f = do
-  e <- get
-  (a, s) <- lift $ unPairT $ mapPolyF prf (\r -> PairT $ runStateT f r) e
-  put s
-  return a
+mapStatePoly prf f = StateT $ unPairT . mapPolyF prf (\r -> PairT $ runStateT f r)
 
 foldPoly :: forall f0 f1 f2 f3 f4 f5 f6 f7
                    a k r n

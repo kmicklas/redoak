@@ -69,6 +69,9 @@ type MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
 type MaybeRawEdit  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   MaybeRawEditT Identity  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 
+modifyT :: Monad m => (s -> m s) -> StateT s m ()
+modifyT f = put =<< lift . f =<< get
+
 getFresh :: (Fresh a, Monad m) => StateT a m a
 getFresh = do
   i <- get

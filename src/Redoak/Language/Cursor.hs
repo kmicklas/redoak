@@ -53,6 +53,28 @@ index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
+indexStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
+            .  ( NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
+               , Functor m, NonTerminal f)
+            => Word
+            -> (forall n
+                .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
+            -> StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m r
+indexStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
+  where
+    go :: forall n'
+       .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+       -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+    go x = PairT $ runStateT f x
+
+assertCanRecur :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, NonTerminal f, Monad m)
+               => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m ()
+assertCanRecur = do
+  nt <- get
+  --- based on Control.Exception.Base.evaluate
+  unless (canDescend nt) $ return =<< (return $! error "path is too deep")
+
+
 path :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
@@ -63,8 +85,7 @@ path l = foldPoly ntfCls go l where
     ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
     ((_, Select r),  _)  -> ([], r)
 
-local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-      .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+local :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
       => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
       -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 local f = do
@@ -72,15 +93,8 @@ local f = do
   case sel of
     (Select _) -> f
     (Descend i) -> mapStatePoly ntfCls $ do
-      nt <- get
-      unless (canDescend nt) $ error "path is too deep" -- error not fail!
-      let go :: forall n'
-             .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-             -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-          go x = PairT $ runStateT (local f) x
-      (a, s) <- lift $ unPairT $ modifyC nt i go go go go go go go go
-      put s
-      return a
+      assertCanRecur
+      indexStateC i $ local f
 
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
@@ -96,17 +110,12 @@ ascend = (getAnn <$> get) >>= \case
         -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
     go0 i = do
       (foundIt, useRange) <- mapStatePoly ntfCls $ do
+        assertCanRecur
+        nextDepth <- indexStateC i $ (getAnn <$> get) >>= \case
+          (a, Select _)  -> return True
+          (a, Descend i') -> go0 i' >> return False
         nt <- get
-        unless (canDescend nt) $ error "path is too deep" -- error not fail!
-        let go :: forall n'
-               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-               -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-            go x = PairT $ case getAnn x of
-              (a, Select _)  -> return (True, x)
-              (a, Descend i') -> runStateT (go0 i' >> return False) x
-        (nextDepth, nt') <- lift $ unPairT $ modifyC nt i go go go go go go go go
-        put nt'
-        return (nextDepth, canSelectRange nt')
+        return (nextDepth, canSelectRange nt)
       when foundIt $ modify $ modifyAnn $ second $ \(Descend _) ->
         Select $ if useRange
                  then Range (i, i + 1)
@@ -260,8 +269,7 @@ descendAll pref direction = do
   descendAllInternal pref direction
 
 -- | Go to edge leaf
-descendAllInternal :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-                   .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+descendAllInternal :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
                    => SelectionPreference
                    -> Direction
                    -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
@@ -290,11 +298,5 @@ descendAllInternal pref direction = do
     Right i -> do
       modify $ modifyAnn $ second $ const $ Descend i
       mapStatePoly ntfCls $ do
-        nt <- get
-        unless (canDescend nt) $ error "path is too deep" -- error not fail!
-        let go :: forall n'
-               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-               -> m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-            go x = (\((),s) -> s) <$> runStateT (descendAllInternal pref direction) x
-        s <- lift $ modifyC nt i go go go go go go go go
-        return ()
+        assertCanRecur
+        indexStateC i $ descendAllInternal pref direction
