@@ -53,6 +53,28 @@ index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
+indexStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
+            .  ( NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
+               , Functor m, NonTerminal f)
+            => Word
+            -> (forall n
+                .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
+            -> StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m r
+indexStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
+  where
+    go :: forall n'
+       .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+       -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
+    go x = PairT $ runStateT f x
+
+assertCanRecur :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, NonTerminal f, Monad m)
+               => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m ()
+assertCanRecur = do
+  nt <- get
+  --- based on Control.Exception.Base.evaluate
+  unless (canDescend nt) $ return =<< (return $! error "path is too deep")
+
+
 path :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
      => Cursor  f0 f1 f2 f3 f4 f5 f6 f7 n ann -> Path
@@ -63,24 +85,16 @@ path l = foldPoly ntfCls go l where
     ((_, Descend i), nt) -> first (i :) $ index (foldFPoly path nt) i
     ((_, Select r),  _)  -> ([], r)
 
-local :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-      .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+local :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
       => (forall n'. EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
       -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 local f = do
-  (a, sel) <- getAnn <$> get
+  (_, sel) <- getAnn <$> get
   case sel of
     (Select _) -> f
     (Descend i) -> mapStatePoly ntfCls $ do
-      nt <- get
-      unless (canDescend nt) $ error "path is too deep" -- error not fail!
-      let go :: forall n'
-             .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-             -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-          go x = PairT $ runStateT (local f) x
-      (a, s) <- lift $ unPairT $ modifyC nt i go go go go go go go go
-      put s
-      return a
+      assertCanRecur
+      indexStateC i $ local f
 
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
@@ -96,17 +110,12 @@ ascend = (getAnn <$> get) >>= \case
         -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
     go0 i = do
       (foundIt, useRange) <- mapStatePoly ntfCls $ do
+        assertCanRecur
+        nextDepth <- indexStateC i $ (getAnn <$> get) >>= \case
+          (a, Select _)  -> return True
+          (a, Descend i') -> go0 i' >> return False
         nt <- get
-        unless (canDescend nt) $ error "path is too deep" -- error not fail!
-        let go :: forall n'
-               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-               -> PairT Bool (MaybeT m) (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-            go x = PairT $ case getAnn x of
-              (a, Select _)  -> return (True, x)
-              (a, Descend i') -> runStateT (go0 i' >> return False) x
-        (nextDepth, nt') <- lift $ unPairT $ modifyC nt i go go go go go go go go
-        put nt'
-        return (nextDepth, canSelectRange nt')
+        return (nextDepth, canSelectRange nt)
       when foundIt $ modify $ modifyAnn $ second $ \(Descend _) ->
         Select $ if useRange
                  then Range (i, i + 1)
@@ -128,17 +137,22 @@ pop = ascend >> selectNoneEnd
 localMove :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
           => (Int -> Tip Int -> Maybe (Tip Int))
           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-localMove f = local $ do
-  (a, Select tip) <- getAnn <$> get
-  tip'' <- mapStatePoly ntfCls $ do
-    nt <- get
-    let len = fromIntegral $ Redoak.Language.Base.length nt
-    tip' <- lift $ MaybeT $ return $ f len $ fromIntegral <$> tip
-    guard $ case tip' of
-      Single p           -> 0 <= p && p < len
-      Range (start, end) -> min start end >= 0 && max start end <= len
-    return tip'
-  modify $ \e -> setAnn e (a, Select $ fromIntegral <$> tip'')
+localMove f = local $ adjustSelection (\x y -> MaybeT $ return $ f x y) mzero
+
+adjustSelection :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+                => (Int -> Tip Int -> m (Tip Int))
+                -> m ()
+                -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+adjustSelection f bad = do
+  (_, Select tip) <- getAnn <$> get
+  len <- fromIntegral <$> foldPoly ntfCls Redoak.Language.Base.length <$> get
+  tip' <- lift $ f len $ fromIntegral <$> tip
+  let valid = case tip' of
+        Single p           -> 0 <= p && p < len
+        Range (start, end) -> min start end >= 0 && max start end <= len
+  if valid
+    then modify $ modifyAnn $ fmap $ \(Select _) -> Select $ fromIntegral <$> tip'
+    else lift bad
 
 localMoveR :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
            => (Int -> Range Int -> Range Int)
@@ -232,3 +246,57 @@ guardSingle = do
     Single pos         -> return pos
     Range (start, end) -> do guard $ diff start end == 1
                              return $ min start end
+
+data SelectionPreference = SelectNone
+                         | SelectOne
+  deriving Eq
+
+data LeafTraverseInternalError = SelectMultipleFatal
+                               | EndofSelection SelectionPreference
+  deriving Eq
+
+data Direction = Leftwards | Rightwards
+
+descendAll :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+           .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+           => SelectionPreference
+           -> Direction
+           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+descendAll pref direction = do
+  i <- guardSingle
+  guard =<< foldPoly ntfCls canDescend <$> get
+  modify $ modifyAnn $ second $ const $ Descend i
+  descendAllInternal pref direction
+
+-- | Go to edge leaf
+descendAllInternal :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+                   => SelectionPreference
+                   -> Direction
+                   -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+descendAllInternal pref direction = do
+  (_, sel) <- getAnn <$> get
+  len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
+  continue <- case sel of
+    (Select tip) -> do
+      canDescend' <- foldPoly ntfCls canDescend <$> get
+      return $ case (canDescend', len > 0) of
+        (True, True) -> Right $ case direction of
+          Leftwards  -> 0       -- leftmost
+          Rightwards -> len - 1 -- rightmost
+        (False, lenNonZero) -> Left $ case (tip, pref, lenNonZero, direction) of
+          (Single _, _,          False, _)          -> Single 0
+          (Single _, _,          True,  Leftwards)  -> Single 0
+          (Single _, _,          True,  Rightwards) -> Single $ len - 1
+          (Range  _, _,          False, _)          -> Range (0, 0)
+          (Range  _, SelectNone, True,  Leftwards)  -> Range (0, 0)
+          (Range  _, SelectNone, True,  Rightwards) -> Range (len, len)
+          (Range  _, SelectOne,  True,  Leftwards)  -> Range (0, 1)
+          (Range  _, SelectOne,  True,  Rightwards) -> Range (len - 1, len)
+    (Descend i) -> return $ Right i
+  case continue of
+    Left tip' -> modify $ modifyAnn $ second $ const $ Select tip'
+    Right i -> do
+      modify $ modifyAnn $ second $ const $ Descend i
+      mapStatePoly ntfCls $ do
+        assertCanRecur
+        indexStateC i $ descendAllInternal pref direction
