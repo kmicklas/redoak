@@ -22,7 +22,7 @@ import           Prelude hiding (foldr)
 import           Control.Comonad.Cofree8
 
 import           Redoak.Rectangle
-import           Redoak.Language
+import           Redoak.Language hiding (Direction)
 import           Redoak.Languages.Fundamental
 import           Redoak.View
 
