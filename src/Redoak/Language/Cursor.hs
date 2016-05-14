@@ -346,125 +346,87 @@ emptyMove direction = mapStateT exceptToMaybeT go where
             Leftwards  -> Range (i, i)
             Rightwards -> Range (i + 1, i + 1)
 
-data LeafTraverseInternalError = SelectMultipleFatal
-                               | EndofSelection SelectionPreference
+data LeafTraverseInternalError = EndOfSelection
   deriving Eq
 
-data SelectionPreference = SelectNone
-                         | SelectOne
-  deriving Eq
-
--- | Leaf traversal helper
+-- | Move a singleton selection between leaves
 leafMove :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
          .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => Direction
          -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 leafMove direction = mapStateT exceptToMaybeT go where
-
-  shimmy :: forall n
-         . (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
-         => Word
-         -> SelectionPreference
-         -> EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-         -> EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-  shimmy i pref failure = do
-    useRange <- foldPoly ntfCls canSelectRange <$> get
-    valid <- checkSetSel $ Descend $ incOrDec $ fromIntegral i
-    if valid
-      then case direction of
-             Leftwards  -> descendAllInternal pref Rightwards
-             Rightwards -> descendAllInternal pref Leftwards
-      else failure
-
   incOrDec :: Num a => a -> a
   incOrDec = case direction of
         Leftwards  -> (flip (-) 1)
-        Rightwards -> (+ 1)
+        Rightwards -> (+1)
+
+  trySides :: forall n
+           .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+           => Word
+           -> EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+  trySides i' = do
+    useRange <- foldPoly ntfCls canSelectRange <$> get
+    let i = incOrDec i'
+    canSelectWholeAdjecent <- checkSetSel $ fromIntegral <$> if useRange
+      then Select $ Range (i, i + 1)
+      else Select $ Single i
+    if not canSelectWholeAdjecent
+      then lift $ throwE $ EndOfSelection
+      else descendAll $ case direction of
+             Leftwards  -> Rightwards
+             Rightwards -> Leftwards
 
   go :: forall n
      . (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
      => EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
   go = (snd <$> getAnn <$> get) >>= \case
     (Select t) -> do
-      (i, useRange, pref) <- case t of
-        Range (start, end) -> (min start end, True,) <$> case diff start end of
-          0 -> return SelectNone
-          1 -> return SelectOne
-          _ -> lift $ throwE SelectMultipleFatal
-        Single i           -> return (i, False, SelectOne)
-
-      shimmy i pref $ do
-        valid <- checkSetSel $ let i' = fromIntegral i'
-                               in Select $ case (pref, useRange) of
-          (SelectNone, True)  -> case direction of
-            Leftwards  -> Range (i', i')
-            Rightwards -> Range (i' + 1, i' + 1)
-          (SelectOne,  True)  -> fmap incOrDec $ Range (i', i' + 1)
-          (SelectOne,  False) -> fmap incOrDec $ Single i'
-          (SelectNone, False) -> fmap incOrDec $ Single i'
-
-        unless valid $ lift $ throwE $ EndofSelection pref
+      let start = case t of
+            Range (start, end) -> min start end
+            Single i           -> i
+      trySides start
 
     (Descend i) -> do
       goSideways <- mapStatePoly ntfCls $ do
         assertCanRecur
-        catchStateExceptT' (modifyStateC i go) >>= \case
-          Left SelectMultipleFatal   -> lift $ throwE SelectMultipleFatal
-          Left (EndofSelection pref) -> return $ Just pref
-          Right ()                   -> return $ Nothing
+        catchStateExceptT' $ modifyStateC i go
       case goSideways of
-        Nothing   -> return ()
-        Just pref -> do
-          let i' = fromIntegral i
-          useRange <- foldPoly ntfCls canSelectRange <$> get
-          case (pref, useRange) of
-            (SelectNone, True)  -> do
-              valid <- checkSetSel $ Select $ case direction of
-                Leftwards  -> Range (i', i')
-                Rightwards -> Range (i' + 1, i' + 1)
-              unless valid $ lift $ throwE $ EndofSelection pref
-            _ -> shimmy i pref $ lift $ throwE $ EndofSelection pref
-
-descendAll :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
-           .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
-           => SelectionPreference
-           -> Direction
-           -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-descendAll pref direction = do
-  i <- guardSingle
-  guard =<< foldPoly ntfCls canDescend <$> get
-  modify $ modifyAnn $ second $ const $ Descend i
-  descendAllInternal pref direction
+        Right _ -> return ()
+        Left  _ -> trySides i -- pretend had selection on this level
 
 -- | Go to edge leaf
-descendAllInternal :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
-                   => SelectionPreference
-                   -> Direction
-                   -> EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
-descendAllInternal pref direction = do
+descendAll :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+           => Direction
+           -> EditT (ExceptT LeafTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+descendAll direction = do
   (_, sel) <- getAnn <$> get
   len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
   continue <- case sel of
     (Select tip) -> do
       canDescend' <- foldPoly ntfCls canDescend <$> get
-      return $ case (canDescend', len > 0) of
-        (True, True) -> Right $ case direction of
-          Leftwards  -> 0       -- leftmost
-          Rightwards -> len - 1 -- rightmost
-        (_, lenNonZero) -> Left $ case (tip, pref, lenNonZero, direction) of
-          (Single _, _,          False, _)          -> Single 0
-          (Single _, _,          True,  Leftwards)  -> Single 0
-          (Single _, _,          True,  Rightwards) -> Single $ len - 1
-          (Range  _, _,          False, _)          -> Range (0, 0)
-          (Range  _, SelectNone, True,  Leftwards)  -> Range (0, 0)
-          (Range  _, SelectNone, True,  Rightwards) -> Range (len, len)
-          (Range  _, SelectOne,  True,  Leftwards)  -> Range (0, 1)
-          (Range  _, SelectOne,  True,  Rightwards) -> Range (len - 1, len)
+      when (len == 0) $ lift $ throwE EndOfSelection
+      return $ case canDescend' of
+        True  -> Right $ case direction of
+          Leftwards     -> 0       -- leftmost
+          Rightwards    -> len - 1 -- rightmost
+        False -> Left $ case (tip, direction) of
+          (Single _, Leftwards)  -> Single 0
+          (Single _, Rightwards) -> Single $ len - 1
+          (Range  _, Leftwards)  -> Range (0, 1)
+          (Range  _, Rightwards) -> Range (len - 1, len)
     (Descend i) -> return $ Right i
   case continue of
     Left tip' -> modify $ modifyAnn $ second $ const $ Select tip'
     Right i -> do
       modify $ modifyAnn $ second $ const $ Descend i
-      mapStatePoly ntfCls $ do
+      wentFurther <- mapStatePoly ntfCls $ do
         assertCanRecur
-        modifyStateC i $ descendAllInternal pref direction
+        catchStateExceptT' $ modifyStateC i $ descendAll direction
+      case wentFurther of
+        Right _ -> return ()
+        Left  _ -> do
+          useRange <- foldPoly ntfCls canSelectRange <$> get
+          -- In case was `descend i` Already
+          modify $ modifyAnn $ second $ const $ Select $ if useRange
+                                                         then Range (i, i)
+                                                         else Single i
