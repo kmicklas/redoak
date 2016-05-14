@@ -264,19 +264,19 @@ data EmptyTraverseInternalError = CantSelectNone
 
 data Direction = Leftwards | Rightwards
 
-cachStateExceptT :: Monad m
-                 => StateT s (ExceptT e m) a
-                 -> StateT s m (Either e a)
-cachStateExceptT m = do
+catchStateExceptT :: Monad m
+                  => StateT s (ExceptT e m) a
+                  -> StateT s m (Either e a)
+catchStateExceptT m = do
   s <- get
   lift (runExceptT $ runStateT m s) >>= \case
     Left  e      -> return $ Left e
     Right (a, s) -> put s >> return (Right a)
 
-cachStateExceptT' :: Monad m
-                  => StateT s (ExceptT e m) a
-                  -> StateT s (ExceptT e' m) (Either e a)
-cachStateExceptT' = mapStateT lift . cachStateExceptT
+catchStateExceptT' :: Monad m
+                   => StateT s (ExceptT e m) a
+                   -> StateT s (ExceptT e' m) (Either e a)
+catchStateExceptT' = mapStateT lift . catchStateExceptT
 
 
 wand :: Monad m => Bool -> m Bool -> m Bool
@@ -318,7 +318,7 @@ emptyMove direction = mapStateT exceptToMaybeT go where
           modify $ modifyAnn $ second $ \(Select _) -> Descend i
           canDescend' <- foldPoly ntfCls canDescend <$> get
           sucess <- wand canDescend' $ mapStatePoly ntfCls $ do
-            res <- cachStateExceptT' $ modifyStateC i $ do
+            res <- catchStateExceptT' $ modifyStateC i $ do
               guardSelectRange
               len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
               modify $ modifyAnn $ second $ const $ Select $ case direction of
@@ -337,7 +337,7 @@ emptyMove direction = mapStateT exceptToMaybeT go where
     (Descend i) -> do
       goSideways <- mapStatePoly ntfCls $ do
         assertCanRecur
-        cachStateExceptT' $ modifyStateC i go
+        catchStateExceptT' $ modifyStateC i go
       case goSideways of
         Right _ -> return ()
         Left  _ -> do
@@ -408,7 +408,7 @@ leafMove direction = mapStateT exceptToMaybeT go where
     (Descend i) -> do
       goSideways <- mapStatePoly ntfCls $ do
         assertCanRecur
-        cachStateExceptT' (modifyStateC i go) >>= \case
+        catchStateExceptT' (modifyStateC i go) >>= \case
           Left SelectMultipleFatal   -> lift $ throwE SelectMultipleFatal
           Left (EndofSelection pref) -> return $ Just pref
           Right ()                   -> return $ Nothing
