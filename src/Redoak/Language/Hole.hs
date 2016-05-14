@@ -56,7 +56,9 @@ instance NonTerminal f => NonTerminal (WithHole f) where
     (Filled e) -> length e
     Unfilled   -> 0
 
-  canSelectRange _ = False
+  canSelectRange = \case
+    (Filled e) -> canSelectRange e
+    Unfilled   -> False
 
   canDescend = \case
     (Filled e) -> canDescend e

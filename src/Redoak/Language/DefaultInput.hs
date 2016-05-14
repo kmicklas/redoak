@@ -21,8 +21,8 @@ basicTraversal = fmap tryEdit . \case
     KeyStroke Down ArrowLeft  (Modifiers False _ True)   -> Just moveLeft
     KeyStroke Down ArrowRight (Modifiers False _ True)   -> Just moveRight
 
-    KeyStroke Down ArrowLeft  (Modifiers True  _ False)  -> Just $ leafMove Leftwards
-    KeyStroke Down ArrowRight (Modifiers True  _ False)  -> Just $ leafMove Rightwards
+    KeyStroke Down ArrowLeft  (Modifiers True  _ False)  -> Just $ emptyMove Leftwards
+    KeyStroke Down ArrowRight (Modifiers True  _ False)  -> Just $ emptyMove Rightwards
 
 
     KeyStroke Down ArrowLeft  (Modifiers True  _ True)   -> Just $ descendAll SelectNone Leftwards
