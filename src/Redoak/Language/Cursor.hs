@@ -279,16 +279,19 @@ cachStateExceptT' :: Monad m
 cachStateExceptT' = mapStateT lift . cachStateExceptT
 
 
+wand :: Monad m => Bool -> m Bool -> m Bool
+wand cond action = if cond then action else return False
+
 -- | Leaf traversal helper
 emptyMove :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
          .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
          => Direction
          -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
 emptyMove direction = mapStateT exceptToMaybeT go where
-  incOrDec :: Num a => a -> a
-  incOrDec = case direction of
+  leftDec :: Num a => a -> a
+  leftDec = case direction of
         Leftwards  -> (flip (-) 1)
-        Rightwards -> (+ 1)
+        Rightwards -> id
 
   guardSelectRange = do
     canSelectNone <- foldPoly ntfCls canSelectRange <$> get
@@ -299,25 +302,36 @@ emptyMove direction = mapStateT exceptToMaybeT go where
      => EditT (ExceptT EmptyTraverseInternalError m)  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
   go = (snd <$> getAnn <$> get) >>= \case
     (Select t) -> do
-      i <- case t of
+      start <- case t of
         Range (start, end) -> return start
         Single i           -> lift $ throwE CantSelectNone
 
-      canSelectWholeAdjecent <- checkSetSel $ incOrDec <$> fromIntegral <$> Select (Range (i, i + 1))
+      let i = case direction of
+            Leftwards  -> start - 1
+            Rightwards -> start -- asymmetrical on purpose
+
+      canSelectWholeAdjecent <- checkSetSel $ fromIntegral <$> Select (Range (i, i + 1))
 
       if canSelectWholeAdjecent
         then do
           modify $ modifyAnn $ second $ \(Select _) -> Descend i
           canDescend' <- foldPoly ntfCls canDescend <$> get
-          sucess <- fmap (canDescend' &&) $ mapStatePoly ntfCls $ do
+          sucess <- wand canDescend' $ mapStatePoly ntfCls $ do
             res <- cachStateExceptT' $ modifyStateC i $ do
               guardSelectRange
               len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
-              modify $ modifyAnn $ second $ const $ Select $ Range (len, len)
+              modify $ modifyAnn $ second $ const $ Select $ case direction of
+                -- flipped
+                Leftwards  -> Range (len, len)
+                Rightwards -> Range (0, 0)
             return $ case res of
               Left  _ -> False
               Right _ -> True
-          unless sucess $ modify $ modifyAnn $ second $ const $ incOrDec <$> Select (Range (i, i))
+          unless sucess $ modify $ modifyAnn $ second $ const $ Select $ let
+            i' = case direction of
+              Leftwards  -> start - 1
+              Rightwards -> start + 1
+            in Range (i', i')
         else lift $ throwE CantSelectNone
 
     (Descend i) -> do
