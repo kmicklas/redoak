@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeOperators #-}
@@ -74,9 +75,9 @@ assertCanRecur :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, NonTerminal f, Monad 
                => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m ()
 assertCanRecur = do
   nt <- get
-  --- based on Control.Exception.Base.evaluate
-  unless (canDescend nt) $ return =<< (return $! error "path is too deep")
-
+  unless (canDescend nt) $ do
+   !_ <- error "path is too deep"
+   return ()
 
 path :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
