@@ -295,7 +295,7 @@ emptyMove direction = mapStateT exceptToMaybeT go where
         then do
           modify $ modifyAnn $ second $ \(Select _) -> Descend i
           canDescend' <- foldPoly ntfCls canDescend <$> get
-          sucess <- mapStatePoly ntfCls $ do
+          sucess <- fmap (canDescend' &&) $ mapStatePoly ntfCls $ do
             nt <- get
             let go1 :: forall n'
                     .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
