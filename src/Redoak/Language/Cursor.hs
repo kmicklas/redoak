@@ -56,14 +56,14 @@ index :: forall f a . NonTerminal f => f a a a a a a a a -> Word -> a
 index nt i = runIdentity $ indexC nt i
   Identity Identity Identity Identity Identity Identity Identity Identity
 
-indexStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
-            .  ( NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
-               , Functor m, NonTerminal f)
-            => Word
-            -> (forall n
-                .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
-            -> StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m r
-indexStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
+modifyStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
+             .  ( NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
+                , Functor m, NonTerminal f)
+             => Word
+             -> (forall n
+                 .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
+             -> StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m r
+modifyStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
   where
     go :: forall n'
        .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
@@ -97,7 +97,7 @@ local f = do
     (Select _) -> f
     (Descend i) -> mapStatePoly ntfCls $ do
       assertCanRecur
-      indexStateC i $ local f
+      modifyStateC i $ local f
 
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
@@ -114,7 +114,7 @@ ascend = (snd <$> getAnn <$> get) >>= \case
     go i = do
       (foundIt, useRange) <- mapStatePoly ntfCls $ do
         assertCanRecur
-        nextDepth <- indexStateC i $ (getAnn <$> get) >>= \case
+        nextDepth <- modifyStateC i $ (getAnn <$> get) >>= \case
           (a, Select _)  -> return True
           (a, Descend i') -> go i' >> return False
         nt <- get
@@ -264,6 +264,20 @@ data EmptyTraverseInternalError = CantSelectNone
 
 data Direction = Leftwards | Rightwards
 
+cachStateExceptT :: Monad m
+                 => StateT s (ExceptT e m) a
+                 -> StateT s m (Either e a)
+cachStateExceptT m = do
+  s <- get
+  lift (runExceptT $ runStateT m s) >>= \case
+    Left  e      -> return $ Left e
+    Right (a, s) -> put s >> return (Right a)
+
+cachStateExceptT' :: Monad m
+                  => StateT s (ExceptT e m) a
+                  -> StateT s (ExceptT e' m) (Either e a)
+cachStateExceptT' = mapStateT lift . cachStateExceptT
+
 
 -- | Leaf traversal helper
 emptyMove :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
@@ -296,36 +310,23 @@ emptyMove direction = mapStateT exceptToMaybeT go where
           modify $ modifyAnn $ second $ \(Select _) -> Descend i
           canDescend' <- foldPoly ntfCls canDescend <$> get
           sucess <- fmap (canDescend' &&) $ mapStatePoly ntfCls $ do
-            nt <- get
-            let go1 :: forall n'
-                    .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-                    -> ExceptT EmptyTraverseInternalError m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-                go1 x = (\((),s) -> s) <$> flip runStateT x (do
-                  guardSelectRange
-                  len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
-                  modify $ modifyAnn $ second $ const $ Select $ Range (len, len))
-                recur = modifyC nt i go1 go1 go1 go1 go1 go1 go1 go1
-            lift (lift $ runExceptT recur) >>= \case
-              Left CantSelectNone        -> return False
-              Right nt'                  -> put nt' >> return True
+            res <- cachStateExceptT' $ modifyStateC i $ do
+              guardSelectRange
+              len <- foldPoly ntfCls Redoak.Language.Base.length <$> get
+              modify $ modifyAnn $ second $ const $ Select $ Range (len, len)
+            return $ case res of
+              Left  _ -> False
+              Right _ -> True
           unless sucess $ modify $ modifyAnn $ second $ const $ incOrDec <$> Select (Range (i, i))
         else lift $ throwE CantSelectNone
 
     (Descend i) -> do
       goSideways <- mapStatePoly ntfCls $ do
         assertCanRecur
-        nt <- get
-        let go1 :: forall n'
-                .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-                -> ExceptT EmptyTraverseInternalError m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-            go1 x = (\((),s) -> s) <$> runStateT go x
-            recur = modifyC nt i go1 go1 go1 go1 go1 go1 go1 go1
-        lift (lift $ runExceptT recur) >>= \case
-          Left CantSelectNone        -> return True
-          Right nt'                  -> put nt' >> return False
+        cachStateExceptT' $ modifyStateC i go
       case goSideways of
-        False -> return ()
-        True -> do
+        Right _ -> return ()
+        Left  _ -> do
           guardSelectRange
           modify $ modifyAnn $ second $ const $ Select $ case direction of
             Leftwards  -> Range (i, i)
@@ -393,18 +394,10 @@ leafMove direction = mapStateT exceptToMaybeT go where
     (Descend i) -> do
       goSideways <- mapStatePoly ntfCls $ do
         assertCanRecur
-        nt <- get
-        let go1 :: forall n'
-               .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
-               -> ExceptT LeafTraverseInternalError m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
-            go1 x = (\((),s) -> s) <$> runStateT go x
-            recur = modifyC nt i go1 go1 go1 go1 go1 go1 go1 go1
-        (nt', pref) <- lift $ flip mapExceptT recur $ fmap $ \case
-          Left SelectMultipleFatal   -> Left SelectMultipleFatal
-          Left (EndofSelection pref) -> Right (nt, Just pref)
-          Right nt'                  -> Right (nt', Nothing)
-        put nt'
-        return pref
+        cachStateExceptT' (modifyStateC i go) >>= \case
+          Left SelectMultipleFatal   -> lift $ throwE SelectMultipleFatal
+          Left (EndofSelection pref) -> return $ Just pref
+          Right ()                   -> return $ Nothing
       case goSideways of
         Nothing   -> return ()
         Just pref -> do
@@ -460,4 +453,4 @@ descendAllInternal pref direction = do
       modify $ modifyAnn $ second $ const $ Descend i
       mapStatePoly ntfCls $ do
         assertCanRecur
-        indexStateC i $ descendAllInternal pref direction
+        modifyStateC i $ descendAllInternal pref direction
