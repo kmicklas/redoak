@@ -131,11 +131,11 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
     Node _ -> True
 
   indexC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
-    Atom _ -> undefined
+    Atom _ -> error "indexC: can't' descend into atom"
     Node s -> k $ S.index s (fromIntegral i)
 
   modifyC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
-    Atom _ -> undefined
+    Atom _ -> error "modifyC: can't' descend into atom"
     Node s -> LiftBf8 <$> Node <$> flip (S.update i') s <$> k (S.index s i')
       where i' = fromIntegral i
 
