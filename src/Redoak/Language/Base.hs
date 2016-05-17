@@ -53,12 +53,6 @@ type NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7 =
   ( NonTerminal f0, NonTerminal f1, NonTerminal f2, NonTerminal f3
   , NonTerminal f4, NonTerminal f5, NonTerminal f6, NonTerminal f7)
 
-class Fresh a where
-  fresh :: a -> a
-
-instance Fresh Word where
-  fresh = (+ 1)
-
 type RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   StateT (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
 type RawEdit f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
@@ -72,24 +66,11 @@ type MaybeRawEdit  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
 modifyT :: Monad m => (s -> m s) -> StateT s m ()
 modifyT f = put =<< lift . f =<< get
 
-getFresh :: (Fresh a, Monad m) => StateT a m a
-getFresh = do
-  i <- get
-  put $ fresh i
-  return i
-
 clearAnn :: ( Functor8 f0, Functor8 f1, Functor8 f2, Functor8 f3
             , Functor8 f4, Functor8 f5, Functor8 f6, Functor8 f7)
          => Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ()
 clearAnn = mapAll $ const ()
-
-initAnn :: ( Traversable8 f0, Traversable8 f1, Traversable8 f2, Traversable8 f3
-           , Traversable8 f4, Traversable8 f5, Traversable8 f6, Traversable8 f7)
-        => (Fresh ann, Monad m)
-        => Cofree8'  f0 f1 f2 f3 f4 f5 f6 f7  n old
-        -> StateT ann m (Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann)
-initAnn = traverseAll (const getFresh)
 
 diff :: Word -> Word -> Word
 diff a b = (max a b) - (min a b)

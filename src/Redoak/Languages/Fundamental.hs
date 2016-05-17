@@ -173,7 +173,7 @@ delete :: forall m ann atom
        .  Fresh ann
        => IsSequence atom
        => Monad m
-       => EditT' (StateT ann m) atom ann ()
+       => EditT' (FreshT ann m) atom ann ()
 delete = local $ do
   (a, Select (Range (start, end))) `CF7` (LiftBf8 sel) <- get
   let front = min start end
@@ -189,7 +189,7 @@ change :: forall m ann atom
        => IsSequence atom
        => Monad m
        => Trunk atom (ann, Selection)
-       -> EditT' (StateT ann m) atom ann ()
+       -> EditT' (FreshT ann m) atom ann ()
 change new = local $ do
     (a, Select (Range (start, end))) `CF7` (LiftBf8 old) <- get
 
@@ -197,7 +197,7 @@ change new = local $ do
                => seq
                -> seq
                -> (seq -> Trunk atom (ann, Selection))
-               -> EditT' (StateT ann m) atom ann ()
+               -> EditT' (FreshT ann m) atom ann ()
         insert old new inj =
           put $ (a, Select $ Range $ adjustRange new) :< inj seq'
           where seq' = mconcat [lPart, new, rPart]
@@ -238,32 +238,32 @@ change new = local $ do
 
 -- | Insert a new empty node at the cursor
 insertNode :: (IsSequence a, Fresh ann, Monad m)
-           => EditT' (StateT ann m) a ann ()
+           => EditT' (FreshT ann m) a ann ()
 insertNode = do
   id <- lift getFresh
   change (Node [(id, Select $ Range (0, 0)) :< Node []])
 
-reverse :: (IsSequence a, Fresh ann, Monad m) => EditT' (StateT ann m) a ann ()
+reverse :: (IsSequence a, Fresh ann, Monad m) => EditT' (FreshT ann m) a ann ()
 reverse = local $ do
   _ `CF7` (LiftBf8 _) <- get -- desugared pattern match needed for absurd pattern
   getSelection >>= (change . mapIsSequence SS.reverse)
 
 -- * Derived Edits
 
-wrap :: (IsSequence a, Fresh ann, Monad m) => EditT' (StateT ann m) a ann ()
+wrap :: (IsSequence a, Fresh ann, Monad m) => EditT' (FreshT ann m) a ann ()
 wrap = do
   sel <- getSelection
   push
   change sel
 
-unwrap :: (IsSequence a, Fresh ann, Monad m) => MaybeEditT' (StateT ann m) a ann ()
+unwrap :: (IsSequence a, Fresh ann, Monad m) => MaybeEditT' (FreshT ann m) a ann ()
 unwrap = do
   sel <- getSelection
   ascend
   justEdit $ change sel
 
 -- | Create new node, edit at begining of it
-push :: (IsSequence a, Fresh ann, Monad m) => EditT' (StateT ann m) a ann ()
+push :: (IsSequence a, Fresh ann, Monad m) => EditT' (FreshT ann m) a ann ()
 push = insertNode >> assumeMaybeEdit descend
 
 
@@ -311,10 +311,10 @@ initState = ( (0, Select $ Range (0, 0)) :< Node []
               })
   where x = (0, Select $ Range (0, 0)) :< Node []
 
-apply :: EditT' (State Word) Text Word a -> State Accum'' a
+apply :: EditT' (FreshT Word Identity) Text Word a -> State Accum'' a
 apply e = do
   (c, s) <- get
-  let ((r, c'), id') = runState (runStateT e $ c) $ currentId s
+  let Identity ((r, c'), id') = runFreshT (runStateT e $ c) $ currentId s
   put $ (c', s { currentId = id' })
   return r
 
@@ -338,7 +338,7 @@ paste = do
   apply $ change $ second initCursor $ new
 
 deleteBackward :: (IsSequence a, Fresh ann, Monad m)
-               => MaybeEditT' (StateT ann m) a ann ()
+               => MaybeEditT' (FreshT ann m) a ann ()
 deleteBackward = do
   e <- isEmpty
   if e
@@ -346,7 +346,7 @@ deleteBackward = do
   else justEdit delete
 
 deleteForward :: (IsSequence a, Fresh ann, Monad m)
-              => MaybeEditT' (StateT ann m) a ann ()
+              => MaybeEditT' (FreshT ann m) a ann ()
 deleteForward = do
   e <- isEmpty
   if e
@@ -354,7 +354,7 @@ deleteForward = do
   else justEdit delete
 
 pushNode :: (IsSequence a, Fresh ann, Monad m)
-            => MaybeEditT' (StateT ann m) a ann ()
+            => MaybeEditT' (FreshT ann m) a ann ()
 pushNode = do
   a <- isInAtom
   if a
@@ -365,7 +365,7 @@ selectOne :: (IsSequence a, Monad m) => MaybeEditT' m a ann ()
 selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
 
 insert :: (IsSequence a, Fresh ann, Monad m)
-       => a -> MaybeEditT' (StateT ann m) a ann ()
+       => a -> MaybeEditT' (FreshT ann m) a ann ()
 insert text = do
   justEdit (change $ Atom text)
   justEdit (tryEdit $ descend >> endMax)
