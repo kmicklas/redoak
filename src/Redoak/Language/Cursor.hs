@@ -39,6 +39,8 @@ type Path = ([Word], Tip Word)
 
 type Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann =
   Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n (ann, Selection)
+type CursorInner f f0 f1 f2 f3 f4 f5 f6 f7  ann =
+  Cofree8Inner' f f0 f1 f2 f3 f4 f5 f6 f7  (ann, Selection)
 
 type EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   StateT (Cursor f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
@@ -63,7 +65,7 @@ modifyStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
              => Word
              -> (forall n
                  .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
-             -> StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m r
+             -> StateT (CursorInner f  f0 f1 f2 f3 f4 f5 f6 f7  ann) m r
 modifyStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
   where
     go :: forall n'
@@ -72,7 +74,7 @@ modifyStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go g
     go x = PairT $ runStateT f x
 
 assertCanRecur :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, NonTerminal f, Monad m)
-               => StateT (Cofree8Inner' f  f0 f1 f2 f3 f4 f5 f6 f7 (ann, Selection)) m ()
+               => StateT (CursorInner f  f0 f1 f2 f3 f4 f5 f6 f7  ann) m ()
 assertCanRecur = do
   nt <- get
   unless (canDescend nt) $ do
