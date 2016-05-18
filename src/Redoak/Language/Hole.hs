@@ -27,6 +27,7 @@ import           Data.Functor.Identity
 import           Data.Map as M
 import           Data.Maybe
 import           Data.Proxy
+import           Data.Sequence as S hiding ((:<), length, index)
 import           Data.Text as T hiding (length, index)
 import           Data.Type.Equality hiding (apply)
 import           GHC.TypeLits
@@ -386,8 +387,11 @@ renderChoicesInternal s index prefix proxy = do
                               Void8 Void8 Void8 (LiftBf8 Element Text)
                               7 Word]
       fundamentals = upCast <$> choiceList where
+
+      fundamental = (id' + 1, Select $ Range (index, index + 1))
+                    `CF7` LiftBf8 (Node $ S.fromList fundamentals)
   divClass "popup"
-    $ sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
+    $ makeNode $ runIdentity $ layout (W maxBound) $ fundamental
 
 upCast :: forall f0 f1 f2 f3 f4 f5 f6 f7 n
        .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
