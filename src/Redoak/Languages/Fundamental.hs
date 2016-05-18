@@ -140,6 +140,7 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
       where i' = fromIntegral i
 
 instance IsSequence a => Completable (LiftBf8 Element a) where
+  identifiers _ = []
   introductions = Data.Map.empty
 
 type Cursor' a ann = Tree a (ann, Selection)

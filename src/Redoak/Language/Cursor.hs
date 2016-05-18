@@ -14,6 +14,7 @@ import Control.Monad.Trans.State
 import Data.Bifunctor
 import Data.Constraint
 import Data.Functor.Identity
+import GHC.TypeLits
 
 import Control.Comonad.Cofree8
 import Data.Functor8
@@ -63,13 +64,13 @@ modifyStateC :: forall m ann r f  f0 f1 f2 f3 f4 f5 f6 f7
              .  ( NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
                 , Functor m, NonTerminal f)
              => Word
-             -> (forall n
-                 .  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
+             -> (forall n. KnownNat n
+                 =>  EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r)
              -> StateT (CursorInner f  f0 f1 f2 f3 f4 f5 f6 f7  ann) m r
 modifyStateC i f = StateT $ \nt -> unPairT $ modifyC nt i go go go go go go go go
   where
-    go :: forall n'
-       .  Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
+    go :: forall n'. KnownNat n'
+       => Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann
        -> PairT r m (Cursor f0 f1 f2 f3 f4 f5 f6 f7 n' ann)
     go x = PairT $ runStateT f x
 

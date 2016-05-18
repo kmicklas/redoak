@@ -17,4 +17,5 @@ instance NonTerminal Void8 where
   modifyC        = \case {}
 
 instance Completable Void8 where
+  identifiers _ = []
   introductions = Data.Map.empty
