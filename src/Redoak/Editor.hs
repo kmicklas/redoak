@@ -19,6 +19,7 @@ import           Reflex.Dom
 
 import           Redoak.Event
 import           Redoak.Language
+import           Redoak.Language.Hole () -- to make sure it compiles
 import qualified Redoak.Languages.Fundamental as Fundamental
 
 

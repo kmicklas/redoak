@@ -1,3 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DataKinds #-}
@@ -10,34 +13,38 @@
 {-# LANGUAGE RankNTypes #-}
 module Redoak.Language.Hole where
 
-import Prelude hiding (length)
+import qualified Prelude
+import           Prelude hiding (length)
 
-import Control.Monad
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.State
-import Data.Bifunctor
-import Data.Constraint
-import Data.Functor.Identity
-import Data.Map as M
-import Data.Maybe
-import Data.Proxy
-import Data.Text as T hiding (length)
-import Data.Type.Equality
-import GHC.TypeLits
+import           Control.Lens hiding (index)
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.State
+import           Data.Bifunctor
+import           Data.Constraint
+import           Data.Functor.Identity
+import           Data.Map as M
+import           Data.Maybe
+import           Data.Proxy
+import           Data.Text as T hiding (length, index)
+import           Data.Type.Equality hiding (apply)
+import           GHC.TypeLits
 
-import Control.Comonad.Cofree8
-import Data.Functor8
-import Data.Foldable8
-import Data.Traversable8
+import           Control.Comonad.Cofree8
+import           Data.Functor8
+import           Data.Foldable8
+import           Data.Traversable8
 
-import Redoak.Language.Base
-import Redoak.Language.Cursor
-import Redoak.Language.Fresh
+import           Redoak.Event
+import           Redoak.Language.Base
+import           Redoak.Language.Cursor hiding (index)
+import           Redoak.Language.DefaultInput
+import           Redoak.Language.Fresh
 
 
 class NonTerminal f => Completable f where
-  identifiers :: Text -> [(f () () () () () () () ())]
+  identifiers :: Text -> Maybe (f () () () () () () () ())
   -- | Introduction rules for auto-complete
   introductions :: Map Text (f () () () () () () () ())
 
@@ -107,7 +114,7 @@ type EditWithHoleT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
 type EditWithHole f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   EditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 
-type EditMaybeWithHoleT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
+type MaybeEditWithHoleT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   EditWithHoleT (MaybeT m) f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 
 -- Eww
@@ -143,16 +150,16 @@ fill :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
      => Text
      -> Word
-     -> EditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
-fill prefix index = modifyT $ \case
-    CF0 a r -> CF0 a <$> go
-    CF1 a r -> CF1 a <$> go
-    CF2 a r -> CF2 a <$> go
-    CF3 a r -> CF3 a <$> go
-    CF4 a r -> CF4 a <$> go
-    CF5 a r -> CF5 a <$> go
-    CF6 a r -> CF6 a <$> go
-    CF7 a r -> CF7 a <$> go
+     -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
+fill prefix index = local' $ modifyT $ \case
+    CF0 a r -> CF0 a <$> lift go
+    CF1 a r -> CF1 a <$> lift go
+    CF2 a r -> CF2 a <$> lift go
+    CF3 a r -> CF3 a <$> lift go
+    CF4 a r -> CF4 a <$> lift go
+    CF5 a r -> CF5 a <$> lift go
+    CF6 a r -> CF6 a <$> lift go
+    CF7 a r -> CF7 a <$> lift go
   where
     go :: forall f
        .  Completable f
@@ -161,11 +168,140 @@ fill prefix index = modifyT $ \case
                (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
                choice
       where
-        choice = Filled $ choices !! fromIntegral index
-        choices = identifiers prefix ++ M.elems (prunePrefix prefix introductions)
+        choice = Filled $ choices prefix !! fromIntegral index
+
+choices :: Completable f => Text -> [f () () () () () () () ()]
+choices prefix = maybeToList (identifiers prefix) ++ M.elems (prunePrefix prefix introductions)
+
+countChoices :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+             .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
+             => Text
+             -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann Word
+countChoices prefix = local' $ do
+  subtree <- get
+  let count :: Int
+      count = case subtree of
+        CF0 a r -> Prelude.length (choices prefix :: [f0 () () () () () () () ()])
+        CF1 a r -> Prelude.length (choices prefix :: [f1 () () () () () () () ()])
+        CF2 a r -> Prelude.length (choices prefix :: [f2 () () () () () () () ()])
+        CF3 a r -> Prelude.length (choices prefix :: [f3 () () () () () () () ()])
+        CF4 a r -> Prelude.length (choices prefix :: [f4 () () () () () () () ()])
+        CF5 a r -> Prelude.length (choices prefix :: [f5 () () () () () () () ()])
+        CF6 a r -> Prelude.length (choices prefix :: [f6 () () () () () () () ()])
+        CF7 a r -> Prelude.length (choices prefix :: [f7 () () () () () () () ()])
+  return $ fromIntegral count
 
 unfill :: (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
-       => EditMaybeWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
+       => MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
 unfill = do
   i <- guardSingle
   mapStatePoly ntfCls $ modifyStateC i $ put =<< lift (lift makeHole)
+
+
+type Ann' = Word
+type Accum' f0 f1 f2 f3 f4 f5 f6 f7 = Editor f0 f1 f2 f3 f4 f5 f6 f7
+type Term' f0 f1 f2 f3 f4 f5 f6 f7  n = CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7
+                                                       n Ann'
+type Trunk f0 f1 f2 f3 f4 f5 f6 f7 = Term' f0 f1 f2 f3 f4 f5 f6 f7  7
+
+type Accum'' f0 f1 f2 f3 f4 f5 f6 f7 =
+  (Trunk f0 f1 f2 f3 f4 f5 f6 f7, Editor f0 f1 f2 f3 f4 f5 f6 f7)
+
+data Editor f0 f1 f2 f3 f4 f5 f6 f7
+  = Editor
+    { _mode :: !Mode
+    , _currentId :: !Word
+    , _clipboard :: Trunk f0 f1 f2 f3 f4 f5 f6 f7
+    }
+
+data Mode
+  = Normal
+  | Filling
+    { _index :: Word
+    , _prefix :: Text
+    }
+  deriving (Eq, Ord, Show)
+
+makeLenses ''Editor
+makeLenses ''Mode
+
+apply :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+      => EditWithHoleT (FreshT Word Identity)  f0 f1 f2 f3 f4 f5 f6 f7  7 Word a
+      -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) a
+apply e = do
+  (c, s) <- get
+  let Identity ((r, c'), id') = runFreshT (runStateT e $ c) $ _currentId s
+  put $ (c', (currentId .~ id') s)
+  return r
+
+gotoMode :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+         => Mode -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+gotoMode m = modify $ second $ mode .~ m
+
+printMode = \case
+  Normal      -> "Normal"
+  Filling _ _ -> "Filling"
+
+handleEvent' :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+             => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+handleEvent' e = get >>= return . _mode . snd >>= \case
+  Normal      -> onEventNormal e
+  Filling _ _ -> onEventFilling e
+
+onEventNormal :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+              => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+onEventNormal e = (apply <$> basicTraversal e) `orElse` case e of
+
+  KeyPress 'i' -> apply $ tryEdit ascend
+  KeyPress 'k' -> apply $ tryEdit descend
+  KeyPress 'j' -> apply $ tryEdit shiftLeft
+  KeyPress 'l' -> apply $ tryEdit shiftRight
+  KeyPress 'J' -> apply $ tryEdit moveLeft
+  KeyPress 'L' -> apply $ tryEdit moveRight
+
+  KeyPress 'a' -> apply $ tryEdit selectAll
+  KeyPress 's' -> apply $ tryEdit switchBounds
+  --KeyPress 'd' -> apply delete
+  KeyPress 'f' -> apply $ tryEdit selectNoneEnd
+  KeyPress 'g' -> apply $ tryEdit selectOne
+
+
+  KeyPress 'h' -> do
+    single <- apply $ maybeEdit' $ local' guardSingle
+    when (isJust single) $ gotoMode $ Filling 0 ""
+
+  _ -> return ()
+
+safeMinus = \case
+  0 -> 0
+  n -> n - 1
+
+onEventFilling :: forall f0 f1 f2 f3 f4 f5 f6 f7
+               .  CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+               => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+onEventFilling = \case
+
+  KeyStroke Down ArrowUp    (Modifiers _     _ _)      -> _2 . mode . index %= safeMinus
+  KeyStroke Down ArrowDown  (Modifiers _     _ _)      -> do
+    pf <- use $ _2 . mode . prefix
+    mlen <- apply $ maybeEdit' $ countChoices pf
+    case mlen of
+      Nothing  -> return ()
+      Just len -> _2 . mode . index %= (\i -> min (i + 1) len)
+
+  KeyStroke Down Enter (Modifiers _ _ False) -> do
+    pf <- use $ _2 . mode . prefix
+    md <- use $ _2 . mode -- lens wants monoid cause partial
+    status <- apply $ maybeEdit' $ fill pf (_index md)
+    when (isJust status) $ gotoMode Normal
+
+  KeyStroke Down Backspace _ -> do
+    pf <- use $ _2 . mode . prefix
+    if T.null pf
+      then gotoMode Normal
+      else _2 . mode . prefix %= T.init
+
+  KeyStroke Down Space (Modifiers _ _ False) -> apply $ tryEdit pop
+
+  KeyPress c -> _2 . mode . prefix %= (`T.snoc` c)
+  _ -> return ()

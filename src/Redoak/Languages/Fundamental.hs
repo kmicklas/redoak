@@ -139,10 +139,6 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
     Node s -> LiftBf8 <$> Node <$> flip (S.update i') s <$> k (S.index s i')
       where i' = fromIntegral i
 
-instance IsSequence a => Completable (LiftBf8 Element a) where
-  identifiers _ = []
-  introductions = Data.Map.empty
-
 type Cursor' a ann = Tree a (ann, Selection)
 
 type EditT' m a ann r = StateT (Cursor' a ann) m r
@@ -293,10 +289,8 @@ data Editor
   = Editor
     { mode :: !Mode
     , currentId :: !Word
-    --, cursor :: Cursor' Text Word
     , clipboard :: Trunk Text ()
     }
-  --deriving (Eq, Ord, Show)
 
 data Mode
   = Normal
@@ -362,17 +356,12 @@ pushNode = do
   then pop >> justEdit push
   else justEdit push
 
-selectOne :: (IsSequence a, Monad m) => MaybeEditT' m a ann ()
-selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
-
 insert :: (IsSequence a, Fresh ann, Monad m)
        => a -> MaybeEditT' (FreshT ann m) a ann ()
 insert text = do
   justEdit (change $ Atom text)
   justEdit (tryEdit $ descend >> endMax)
   selectNoneEnd
-
-orElse = flip fromMaybe
 
 onEvent :: KeyEvent -> State Accum'' ()
 onEvent e = (apply <$> basicTraversal e) `orElse` case e of

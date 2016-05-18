@@ -80,16 +80,23 @@ justEdit :: Monad m
          -> MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
 justEdit = mapStateT (MaybeT . fmap Just)
 
+maybeEdit' :: Monad m
+           => MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+           -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann (Maybe r)
+maybeEdit' try = do
+  c <- get
+  r <- lift $ runMaybeT $ runStateT try c
+  case r of
+    Nothing -> return Nothing
+    Just (v, c') -> put c' >> return (Just v)
+
 maybeEdit :: Monad m
           => MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
           -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
           -> RawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
-maybeEdit try catch = do
-  c <- get
-  r <- lift $ runMaybeT $ runStateT try c
-  case r of
+maybeEdit try catch = maybeEdit' try >>= \case
     Nothing -> catch
-    Just (v, c') -> put c' >> return v
+    Just v -> return v
 
 tryEdit :: Monad m
         => MaybeRawEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()

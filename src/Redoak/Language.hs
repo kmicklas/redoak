@@ -4,7 +4,6 @@
 module Redoak.Language
   ( module Redoak.Language.Base
   , module Redoak.Language.Cursor
-  , module Redoak.Language.Hole
   , module Redoak.Language.Fresh
   , Term(..)
   , RootTerm(..)
@@ -18,7 +17,6 @@ import Reflex.Dom
 import Redoak.Event
 import Redoak.Language.Base
 import Redoak.Language.Cursor
-import Redoak.Language.Hole
 import Redoak.Language.Fresh
 
 type Term f0 f1 f2 f3 f4 f5 f6 f7 n =

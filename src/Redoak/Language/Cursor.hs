@@ -103,6 +103,23 @@ local f = do
       assertCanRecur
       modifyStateC i $ local f
 
+-- | Like `local`, but descend *into* the final selection
+local' :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+      => (forall n'. MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n' ann r)
+      -> MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r
+local' f = do
+  (_, sel) <- getAnn <$> get
+  case sel of
+    (Select _) -> do
+      i <- guardSingle
+      mapStatePoly ntfCls $ do
+        guard =<< canDescend <$> get --- not assert
+        modifyStateC i f
+    (Descend i) -> mapStatePoly ntfCls $ do
+      assertCanRecur
+      modifyStateC i $ local f
+
+
 -- | Select the node which we're currently inside
 ascend :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
        .  (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
@@ -224,6 +241,10 @@ unCursor :: NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
          => Cursor  f0 f1 f2 f3 f4 f5 f6 f7  n ann
          -> Cofree8' f0 f1 f2 f3 f4 f5 f6 f7  n ann
 unCursor = mapAll fst
+
+selectOne :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+          => MaybeEditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+selectOne = selectNoneEnd >> maybeEdit moveRight (moveLeft >> switchBounds)
 
 initCursor :: forall f0 f1 f2 f3 f4 f5 f6 f7  n ann
            .  NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7

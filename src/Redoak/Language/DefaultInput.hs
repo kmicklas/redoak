@@ -1,11 +1,14 @@
 module Redoak.Language.DefaultInput where
 
 import Control.Monad.Trans.State
+import Data.Maybe
 
 import Redoak.Event
 import Redoak.Language.Base
 import Redoak.Language.Cursor
 
+
+orElse = flip fromMaybe
 
 runStateOnly :: State s () -> s -> s
 runStateOnly m = snd . runState m
