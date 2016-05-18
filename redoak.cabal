@@ -31,6 +31,7 @@ executable redoak
                     , constraints >= 0.8
                     , containers
                     , free
+                    , genifunctors >= 0.3
                     , ghcjs-dom
                     , lens >= 4.13
                     , mono-traversable >= 0.10

@@ -19,6 +19,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import Data.Coerce
+import Data.Generics.Genifunctors
 import Data.Map (Map, fromList, empty)
 import Data.Maybe
 import Data.Monoid
@@ -41,7 +42,7 @@ import Redoak.Languages.Fundamental hiding ( Trunk
 
 
 
-newtype Items tyIdents ident tyIdent ty exp block item items
+newtype Items ident tyIdent tyIdents ty exp block item items
   = Items { _items :: Seq item }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''Items
@@ -49,12 +50,12 @@ makeLenses ''Items
 data NominalSort = Struct | Union
   deriving (Eq, Ord, Show)
 
-data Item tyIdents ident tyIdent ty exp block item items
+data Item ident tyIdent tyIdents ty exp block item items
   = Nominal NominalSort ident tyIdents
   | Function            ident tyIdents block
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-newtype Block tyIdents ident tyIdent ty exp block item items
+newtype Block ident tyIdent tyIdents ty exp block item items
   = Block { _block :: Seq exp }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''Block
@@ -70,7 +71,7 @@ data PrimBinOpSort
   | BinOr  | BinAnd | BinXor
   deriving (Eq, Ord, Show)
 
-data Expr tyIdents ident tyIdent ty exp block item items
+data Expr ident tyIdent tyIdents ty exp block item items
   = Ident ident
   | Decl tyIdent exp
   | PrimMonOp PrimMonOpSort exp
@@ -84,7 +85,7 @@ data Signage = Signed | Unsigned
 data NumType = Char | Short | Int | Long
   deriving (Eq, Ord, Show)
 
-data Type tyIdents ident tyIdent ty exp block item items
+data Type ident tyIdent tyIdents ty exp block item items
   = Void
   | NumType Signage NumType
   | NominalType NominalSort ident
@@ -92,57 +93,38 @@ data Type tyIdents ident tyIdent ty exp block item items
   | FunPtr ty (Seq ty)
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-newtype TyIdents tyIdents ident tyIdent ty exp block item items
+newtype TyIdents ident tyIdent tyIdents ty exp block item items
   = TyIdents { _tyIdents :: (Seq tyIdent) }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''TyIdents
 
-data TyIdent tyIdents ident tyIdent ty exp block item items
+data TyIdent ident tyIdent tyIdents ty exp block item items
   = TyIdent ty ident
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-data Ident tyIdents ident tyIdent ty exp block item items
+data Ident ident tyIdent tyIdents ty exp block item items
   = Text Text
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-type RawC n ann = Cursor         TyIdents Ident TyIdent Type Expr Block Item Items n ann
-type C    n ann = CursorWithHole TyIdents Ident TyIdent Type Expr Block Item Items n ann
+type RawC n ann = Cursor         Ident TyIdent TyIdents Type Expr Block Item Items n ann
+type C    n ann = CursorWithHole Ident TyIdent TyIdents Type Expr Block Item Items n ann
 
 
 
 instance Functor8 Items where
-  map8 _ _ _ _ _ _ i _ = items %~ fmap i
-
+  map8 = $(genFmap ''Items)
 instance Functor8 Item where
-  map8 tis i ti t e b it its = \case
-    Nominal nomSort ident tyIdents       -> Nominal nomSort (i ident) (tis tyIdents)
-    Function        ident tyIdents block -> Function (i ident) (tis tyIdents) (b block)
-
+  map8 = $(genFmap ''Item)
 instance Functor8 Expr where
-  map8 _ i ti t e b it its = \case
-    Ident ident          -> Ident (i ident)
-    Decl tyIdent exp     -> Decl (ti tyIdent) (e exp)
-    PrimMonOp sort e0    -> PrimMonOp sort (e e0)
-    PrimBinOp sort e0 e1 -> PrimBinOp sort (e e0) (e e1)
-    App e0 es            -> App (e e0) (e <$> es)
-
+  map8 = $(genFmap ''Expr)
 instance Functor8 Type where
-  map8 _ i _ t _ _ _ _ = \case
-    Void             -> Void
-    NumType s nt     -> NumType s nt
-    NominalType s i0 -> NominalType s (i i0)
-    Ptr t0           -> Ptr (t t0)
-    FunPtr t0 ts     -> FunPtr (t t0) (t <$> ts)
-
+  map8 = $(genFmap ''Type)
 instance Functor8 TyIdents where
-  map8 _ _ ti _ _ _ _ _ = tyIdents %~ fmap ti
-
+  map8 = $(genFmap ''TyIdents)
 instance Functor8 TyIdent where
-  map8 _ i _ t _ _ _ _ (TyIdent t0 i0) = TyIdent (t t0) (i i0)
-
+  map8 = $(genFmap ''TyIdent)
 instance Functor8 Ident where
   map8 _ _ _ _ _ _ _ _ = coerce
-
 
 
 instance NonTerminal Items where
