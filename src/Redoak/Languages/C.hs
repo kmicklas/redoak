@@ -173,8 +173,8 @@ instance Language (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole
 
   handleEvent = runStateOnly . handleEvent'
 
-  getMessage (_, s) = ( "C: " <> printMode (_mode s)
-                      , return ())
+  getMessage a@(_, s) = ( "C: " <> printMode (_mode s)
+                        , renderChoices a)
 
 type AccumP = (Trunk, Accum')
 

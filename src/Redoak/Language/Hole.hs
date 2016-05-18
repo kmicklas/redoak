@@ -350,19 +350,43 @@ renderChoices :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
                  , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
                  , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
               => AccumP' f0 f1 f2 f3 f4 f5 f6 f7
-              -> CursorWithHole d0 d1 d2 d3 d4 d5 d6 d7 n a
               -> m ()
-renderChoices s proxy = case s^._2.mode of
+renderChoices accum = case accum^._2.mode of
   Normal -> return ()
   Filling index prefix -> do
-    let choiceList :: [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word]
-        Identity (choiceList, id') = flip runFreshT (s^._2.currentId)
-                                     $ makeChoices prefix proxy
-        fundamentals :: [Cursor Void8 Void8 Void8 Void8
-                                Void8 Void8 Void8 (LiftBf8 Element Text)
-                                7 Word]
-        fundamentals = upCast <$> choiceList where
-    sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
+    let action :: MaybeEditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7 7 Word (m ())
+        action = local' $ do
+          subtree <- get
+          return $ renderChoicesInternal accum index prefix subtree
+    case runIdentity $ runMaybeT $ fmap fst $ runStateT action $ accum^._1 of
+      Nothing -> return ()
+      Just m  -> m
+
+renderChoicesInternal :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
+                                    d0 d1 d2 d3 d4 d5 d6 d7
+                      .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, MonadWidget t m
+                         , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
+                         , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
+                      => AccumP' f0 f1 f2 f3 f4 f5 f6 f7
+                      -> Word
+                      -> Text
+                      -> CursorWithHole d0 d1 d2 d3 d4 d5 d6 d7 n a
+                      -> m ()
+renderChoicesInternal s index prefix proxy = do
+  let choiceList :: [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word]
+      Identity (choiceList, id') = flip runFreshT (s^._2.currentId)
+                                   $ makeChoices prefix proxy
+      fundamentals :: [Cursor Void8 Void8 Void8 Void8
+                              Void8 Void8 Void8 (LiftBf8 Element Text)
+                              7 Word]
+      fundamentals = upCast <$> choiceList where
+  sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
 
 upCast :: forall f0 f1 f2 f3 f4 f5 f6 f7 n
        .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
