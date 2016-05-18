@@ -16,7 +16,7 @@ module Redoak.Language.Hole where
 import qualified Prelude
 import           Prelude hiding (length)
 
-import           Control.Lens hiding (index)
+import           Control.Lens hiding (index, (:<))
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
@@ -30,6 +30,7 @@ import           Data.Proxy
 import           Data.Text as T hiding (length, index)
 import           Data.Type.Equality hiding (apply)
 import           GHC.TypeLits
+import           Reflex.Dom (MonadWidget)
 
 import           Control.Comonad.Cofree8
 import           Data.Functor8
@@ -37,11 +38,20 @@ import           Data.Foldable8
 import           Data.Traversable8
 
 import           Redoak.Event
-import           Redoak.Language.Base
-import           Redoak.Language.Cursor hiding (index)
+import           Redoak.Layout
+import           Redoak.Rectangle
+import           Redoak.Layout.Identity
+import           Redoak.View
+import           Redoak.Language hiding (index)
 import           Redoak.Language.DefaultInput
-import           Redoak.Language.Fresh
+import           Redoak.Languages.Fundamental (LiftBf8(..), Element(..))
 
+
+
+
+instance Completable Void8 where
+  identifiers _ = Nothing
+  introductions = M.empty
 
 class NonTerminal f => Completable f where
   identifiers :: Text -> Maybe (f () () () () () () () ())
@@ -146,29 +156,49 @@ makeHole = case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 0) of
 prunePrefix :: Text -> Map Text a -> Map Text a
 prunePrefix prefix = M.filterWithKey $ \ k _ -> isJust $ stripPrefix prefix k
 
+makeChoices :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
+                          dum    d0 d1 d2 d3 d4 d5 d6 d7
+            .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
+            => Text
+            -> CursorWithHole d0 d1 d2 d3 d4 d5 d6 d7 n dum
+            -> FreshT ann m [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n ann]
+makeChoices prefix = \case
+    CF0 a r -> (fmap . fmap) (uncurry CF0) mkPair
+    CF1 a r -> (fmap . fmap) (uncurry CF1) mkPair
+    CF2 a r -> (fmap . fmap) (uncurry CF2) mkPair
+    CF3 a r -> (fmap . fmap) (uncurry CF3) mkPair
+    CF4 a r -> (fmap . fmap) (uncurry CF4) mkPair
+    CF5 a r -> (fmap . fmap) (uncurry CF5) mkPair
+    CF6 a r -> (fmap . fmap) (uncurry CF6) mkPair
+    CF7 a r -> (fmap . fmap) (uncurry CF7) mkPair
+  where
+    mkPair  :: forall f
+            .  Completable f
+            => FreshT ann m [( (ann, Selection)
+                             , CursorInnerWithHole f f0 f1 f2 f3 f4 f5 f6 f7  ann)]
+    mkPair = do
+      ts <- mkInners
+      forM ts $ \t -> do
+        a <- getFresh
+        let sel = Select $ if canSelectRange t
+              then Range (0, 0)
+              else Single 0
+        return ((a, sel), t)
+
+    mkInners :: forall f
+             .  Completable f
+             => FreshT ann m [CursorInnerWithHole f f0 f1 f2 f3 f4 f5 f6 f7  ann]
+    mkInners = sequence
+              $ mapM8 (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
+                      (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
+              <$> Filled <$> choices prefix
+
 fill :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
      => Text
      -> Word
      -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
-fill prefix index = local' $ modifyT $ \case
-    CF0 a r -> CF0 a <$> lift go
-    CF1 a r -> CF1 a <$> lift go
-    CF2 a r -> CF2 a <$> lift go
-    CF3 a r -> CF3 a <$> lift go
-    CF4 a r -> CF4 a <$> lift go
-    CF5 a r -> CF5 a <$> lift go
-    CF6 a r -> CF6 a <$> lift go
-    CF7 a r -> CF7 a <$> lift go
-  where
-    go :: forall f
-       .  Completable f
-       => FreshT ann m (CursorInnerWithHole f f0 f1 f2 f3 f4 f5 f6 f7  ann)
-    go = mapM8 (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
-               (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
-               choice
-      where
-        choice = Filled $ choices prefix !! fromIntegral index
+fill prefix index = local' $ modifyT $ lift . fmap (!! fromIntegral index) . makeChoices prefix
 
 choices :: Completable f => Text -> [f () () () () () () () ()]
 choices prefix = maybeToList (identifiers prefix) ++ M.elems (prunePrefix prefix introductions)
@@ -306,3 +336,54 @@ onEventFilling = \case
 
   KeyPress c -> _2 . mode . prefix %= (`T.snoc` c)
   _ -> return ()
+
+
+renderChoices :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
+                            d0 d1 d2 d3 d4 d5 d6 d7
+              .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, MonadWidget t m
+                 , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
+                 , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
+              => AccumP' f0 f1 f2 f3 f4 f5 f6 f7
+              -> CursorWithHole d0 d1 d2 d3 d4 d5 d6 d7 n a
+              -> m ()
+renderChoices s proxy = case s^._2.mode of
+  Normal -> return ()
+  Filling index prefix -> do
+    let choiceList :: [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word]
+        Identity (choiceList, id') = flip runFreshT (s^._2.currentId)
+                                     $ makeChoices prefix proxy
+        fundamentals :: [Cursor Void8 Void8 Void8 Void8
+                                Void8 Void8 Void8 (LiftBf8 Element Text)
+                                7 Word]
+        fundamentals = upCast <$> choiceList where
+    sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
+
+upCast :: forall f0 f1 f2 f3 f4 f5 f6 f7 n
+       .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
+          , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
+          , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
+       => CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word
+       -> Cursor Void8 Void8 Void8 Void8 Void8 Void8 Void8
+                 (LiftBf8 Element Text)
+                 7 Word
+upCast = \case
+  CF0 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF1 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF2 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF3 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF4 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF5 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF6 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF7 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)

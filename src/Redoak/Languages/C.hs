@@ -34,6 +34,9 @@ import Redoak.Language
 import Redoak.Language.Hole
 import Redoak.Language.DefaultInput
 import Redoak.Languages.Empty
+import Redoak.Languages.Fundamental hiding ( Trunk
+                                           , Ann', Ann'', Accum', AccumP, Accum''
+                                           , Editor, Mode(..))
 
 
 
@@ -184,3 +187,9 @@ initState = ( (0, Select $ Range (0, 0)) `CF7` Filled (Items [])
               { _mode = Normal
               , _currentId = 1
               })
+
+instance Renderable
+           (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+           (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items)
+           Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) where
+  convert = _

@@ -283,7 +283,7 @@ type Ann'   = Ann   Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element T
 type Accum' = Accum Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text)
 type Term'  = Term  Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) 7
 
-type Accum'' = (Term' , Accum')
+type AccumP = (Term' , Accum')
 
 data Editor
   = Editor
@@ -297,7 +297,7 @@ data Mode
   | Insert
   deriving (Eq, Ord, Show)
 
-initState :: Accum''
+initState :: AccumP
 initState = ( (0, Select $ Range (0, 0)) :< Node []
             , Editor
               { mode = Normal
@@ -306,27 +306,27 @@ initState = ( (0, Select $ Range (0, 0)) :< Node []
               })
   where x = (0, Select $ Range (0, 0)) :< Node []
 
-apply :: EditT' (FreshT Word Identity) Text Word a -> State Accum'' a
+apply :: EditT' (FreshT Word Identity) Text Word a -> State AccumP a
 apply e = do
   (c, s) <- get
   let Identity ((r, c'), id') = runFreshT (runStateT e $ c) $ currentId s
   put $ (c', s { currentId = id' })
   return r
 
-inMode :: Mode -> State Accum'' () -> State Accum'' ()
+inMode :: Mode -> State AccumP () -> State AccumP ()
 inMode m a = do
   (_, s) <- get
   when (mode s == m) a
 
-gotoMode :: Mode -> State Accum'' ()
+gotoMode :: Mode -> State AccumP ()
 gotoMode m = modify $ second $ \ s -> s { mode = m }
 
-copy :: State Accum'' ()
+copy :: State AccumP ()
 copy = do
   sel <- fmap clearAnn <$> apply getSelection
   modify $ fmap $ \s -> s { clipboard = sel }
 
-paste :: State Accum'' ()
+paste :: State AccumP ()
 paste = do
   (_, s) <- get
   new <- apply $ lift $ mapM initAnn $ clipboard s
@@ -363,7 +363,7 @@ insert text = do
   justEdit (tryEdit $ descend >> endMax)
   selectNoneEnd
 
-onEvent :: KeyEvent -> State Accum'' ()
+onEvent :: KeyEvent -> State AccumP ()
 onEvent e = (apply <$> basicTraversal e) `orElse` case e of
   KeyStroke Down Tab (Modifiers _ _ False) -> apply $ tryEdit pushNode
 
@@ -372,7 +372,7 @@ onEvent e = (apply <$> basicTraversal e) `orElse` case e of
 
   _ -> return ()
 
-onEventNormal :: KeyEvent -> State Accum'' ()
+onEventNormal :: KeyEvent -> State AccumP ()
 onEventNormal = \case
 
   KeyPress 'i' -> apply $ tryEdit ascend
@@ -402,7 +402,7 @@ onEventNormal = \case
 
   _ -> return ()
 
-onEventInsert :: KeyEvent -> State Accum'' ()
+onEventInsert :: KeyEvent -> State AccumP ()
 onEventInsert = \case
 
   KeyStroke Down Enter (Modifiers _ _ False) -> gotoMode Normal

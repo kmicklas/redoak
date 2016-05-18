@@ -8,6 +8,8 @@ module Redoak.Language
   , Term(..)
   , RootTerm(..)
   , Language(..)
+  , Renderable(..)
+  , RenderableNonTerminal(..)
   ) where
 
 import Data.Text (Text)
@@ -46,3 +48,23 @@ class NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7
                 , Accum     f0 f1 f2 f3 f4 f5 f6 f7)
              -> ( Text  -- mode/status/whatever
                 , m ()) -- some widget to display
+
+-- | Also squashes
+class (NonTerminal f, NonTerminal g) => RenderableNonTerminal f g where
+  convertNT :: forall a b0 b1 b2 b3 b4 b5 b6 b7
+            .  f a a a a a a a a
+            -> g b0 b1 b2 b3 b4 b5 b6 a
+
+class ( Language f0 f1 f2 f3 f4 f5 f6 f7
+      , Language g0 g1 g2 g3 g4 g5 g6 g7)
+      => Renderable  f0 f1 f2 f3 f4 f5 f6 f7  g0 g1 g2 g3 g4 g5 g6 g7 where
+
+  convert :: ( RootTerm  f0 f1 f2 f3 f4 f5 f6 f7
+             , Accum     f0 f1 f2 f3 f4 f5 f6 f7)
+          -> ( RootTerm  f0 f1 f2 f3 f4 f5 f6 f7
+             , Accum     f0 f1 f2 f3 f4 f5 f6 f7)
+
+instance Language f0 f1 f2 f3 f4 f5 f6 f7
+         => Renderable  f0 f1 f2 f3 f4 f5 f6 f7  f0 f1 f2 f3 f4 f5 f6 f7 where
+
+  convert = id
