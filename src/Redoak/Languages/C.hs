@@ -1,0 +1,186 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+
+module Redoak.Languages.C where
+
+import Control.Lens
+import Control.Monad
+import Control.Monad.Identity
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.State
+import Data.Coerce
+import Data.Map (Map, fromList, empty)
+import Data.Maybe
+import Data.Monoid
+import Data.Text as T hiding (copy)
+
+import Control.Comonad.Cofree8
+import Data.Functor8
+import Data.Foldable8
+import Data.Traversable8
+
+import Redoak.Event
+import Redoak.Language
+import Redoak.Language.Hole
+import Redoak.Language.DefaultInput
+import Redoak.Languages.Empty
+
+
+
+data Items v0 ident tyIdent ty exp block item items
+  = Items { _items :: [item] }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+makeLenses ''Items
+
+data NominalSort = Struct | Union
+  deriving (Eq, Ord, Show)
+
+data Item v0 ident tyIdent ty exp block item items
+  = Nominal NominalSort ident [tyIdent]
+  | Function            ident [tyIdent] block
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+data Block v0 ident tyIdent ty exp block item items
+  = Block { _block :: [exp] }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+makeLenses ''Block
+
+data PrimMonOpSort
+  = Ref | Deref
+  | BoolInv | BinInv
+  deriving (Eq, Ord, Show)
+
+data PrimBinOpSort
+  = Add | Sub | Mult | Divide
+  | BoolOr | Booland
+  | BinOr  | BinAnd | BinXor
+  deriving (Eq, Ord, Show)
+
+data Expr v0 ident tyIdent ty exp block item items
+  = Ident ident
+  | Decl tyIdent exp
+  | PrimMonOp PrimMonOpSort exp
+  | PrimBinOp PrimBinOpSort exp exp
+  | App exp [exp]
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+data Signage = Signed | Unsigned
+  deriving (Eq, Ord, Show)
+
+data NumType = Char | Short | Int | Long
+  deriving (Eq, Ord, Show)
+
+data Type v0 ident tyIdent ty exp block item items
+  = Void
+  | NumType Signage NumType
+  | NominalType NominalSort ident
+  | Ptr ty
+  | FunPtr ty [ty]
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+data TyIdent v0 ident tyIdent ty exp block item items
+  = TyIdent ty ident
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+data Ident v0 ident tyIdent ty exp block item items
+  = Text Text
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+type RawC n ann = Cursor         Void8 Ident TyIdent Type Expr Block Item Items n ann
+type C    n ann = CursorWithHole Void8 Ident TyIdent Type Expr Block Item Items n ann
+
+
+
+instance Functor8 Items where
+  map8 _ _ _ _ _ _ i _ = items %~ fmap i
+
+instance Functor8 Item where
+  map8 _ i ti t e b it its = \case
+    Nominal nomSort ident tyIdents       -> Nominal nomSort (i ident) (ti <$> tyIdents)
+    Function        ident tyIdents block -> Function (i ident) (ti <$> tyIdents) (b block)
+
+instance Functor8 Expr where
+  map8 _ i ti t e b it its = \case
+    Ident ident -> Ident (i ident)
+    _           -> _
+
+instance Functor8 Type where
+  map8 _ i ti t e b it its = \case
+    _           -> _
+
+instance Functor8 TyIdent where
+  map8 _ i ti t e b it its = \case
+    _           -> _
+
+instance Functor8 Ident where
+  map8 _ _ _ _ _ _ _ _ = coerce
+
+
+
+instance NonTerminal Items where
+
+instance NonTerminal Item where
+
+instance NonTerminal Block where
+
+instance NonTerminal Expr where
+
+instance NonTerminal Type where
+
+instance NonTerminal TyIdent where
+
+instance NonTerminal Ident where
+
+
+
+instance Completable Items where
+
+instance Completable Item where
+
+instance Completable Block where
+
+instance Completable Expr where
+
+instance Completable Type where
+
+instance Completable TyIdent where
+
+instance Completable Ident where
+
+
+
+instance Language (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+                  (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) where
+
+  type Ann (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+           (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Ann'
+
+  type Accum (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+             (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Accum'
+
+  handleEvent = runStateOnly . handleEvent'
+
+  getMessage (_, s) = ( "C: " <> printMode (_mode s)
+                      , return ())
+
+type AccumP = (Trunk, Accum')
+
+type Term'' n = C n Ann'
+type Trunk  = Term'' 7
+
+initState :: AccumP
+initState = ( (0, Select $ Range (0, 0)) `CF7` Filled (Items [])
+            , Editor
+              { _mode = Normal
+              , _currentId = 1
+              })

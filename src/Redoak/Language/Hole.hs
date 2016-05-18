@@ -199,19 +199,19 @@ unfill = do
 
 
 type Ann' = Word
-type Accum' f0 f1 f2 f3 f4 f5 f6 f7 = Editor f0 f1 f2 f3 f4 f5 f6 f7
+type Accum' = Editor
 type Term' f0 f1 f2 f3 f4 f5 f6 f7  n = CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7
                                                        n Ann'
-type Trunk f0 f1 f2 f3 f4 f5 f6 f7 = Term' f0 f1 f2 f3 f4 f5 f6 f7  7
+type Trunk' f0 f1 f2 f3 f4 f5 f6 f7 = Term' f0 f1 f2 f3 f4 f5 f6 f7  7
 
-type Accum'' f0 f1 f2 f3 f4 f5 f6 f7 =
-  (Trunk f0 f1 f2 f3 f4 f5 f6 f7, Editor f0 f1 f2 f3 f4 f5 f6 f7)
+type AccumP' f0 f1 f2 f3 f4 f5 f6 f7 =
+  (Trunk' f0 f1 f2 f3 f4 f5 f6 f7, Editor)
 
-data Editor f0 f1 f2 f3 f4 f5 f6 f7
+data Editor --f0 f1 f2 f3 f4 f5 f6 f7
   = Editor
     { _mode :: !Mode
     , _currentId :: !Word
-    , _clipboard :: Trunk f0 f1 f2 f3 f4 f5 f6 f7
+--    , _clipboard :: Trunk' f0 f1 f2 f3 f4 f5 f6 f7
     }
 
 data Mode
@@ -227,7 +227,7 @@ makeLenses ''Mode
 
 apply :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
       => EditWithHoleT (FreshT Word Identity)  f0 f1 f2 f3 f4 f5 f6 f7  7 Word a
-      -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) a
+      -> State (AccumP' f0 f1 f2 f3 f4 f5 f6 f7) a
 apply e = do
   (c, s) <- get
   let Identity ((r, c'), id') = runFreshT (runStateT e $ c) $ _currentId s
@@ -235,21 +235,22 @@ apply e = do
   return r
 
 gotoMode :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
-         => Mode -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+         => Mode -> State (AccumP' f0 f1 f2 f3 f4 f5 f6 f7) ()
 gotoMode m = modify $ second $ mode .~ m
 
+printMode :: Mode -> Text
 printMode = \case
   Normal      -> "Normal"
   Filling _ _ -> "Filling"
 
 handleEvent' :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
-             => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+             => KeyEvent -> State (AccumP' f0 f1 f2 f3 f4 f5 f6 f7) ()
 handleEvent' e = get >>= return . _mode . snd >>= \case
   Normal      -> onEventNormal e
   Filling _ _ -> onEventFilling e
 
 onEventNormal :: CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
-              => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+              => KeyEvent -> State (AccumP' f0 f1 f2 f3 f4 f5 f6 f7) ()
 onEventNormal e = (apply <$> basicTraversal e) `orElse` case e of
 
   KeyPress 'i' -> apply $ tryEdit ascend
@@ -278,7 +279,7 @@ safeMinus = \case
 
 onEventFilling :: forall f0 f1 f2 f3 f4 f5 f6 f7
                .  CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
-               => KeyEvent -> State (Accum'' f0 f1 f2 f3 f4 f5 f6 f7) ()
+               => KeyEvent -> State (AccumP' f0 f1 f2 f3 f4 f5 f6 f7) ()
 onEventFilling = \case
 
   KeyStroke Down ArrowUp    (Modifiers _     _ _)      -> _2 . mode . index %= safeMinus
