@@ -145,6 +145,75 @@ instance Functor8 Ident where
 
 
 
+instance Foldable8 Items where
+  foldMap8 _ _ _ _ _ _ i _ = foldMap i . _items
+
+instance Foldable8 Item where
+  foldMap8 tis i ti t e b it its = \case
+    Nominal _ ident tyIdents       -> (i ident) <> (tis tyIdents)
+    Function  ident tyIdents block -> (i ident) <> (tis tyIdents) <> (b block)
+
+instance Foldable8 Expr where
+  foldMap8 _ i ti t e b it its = \case
+    Ident ident          -> i ident
+    Decl tyIdent exp     -> (ti tyIdent) <> (e exp)
+    PrimMonOp sort e0    -> e e0
+    PrimBinOp sort e0 e1 -> (e e0) <> (e e1)
+    App e0 es            -> (e e0) <> (foldMap e es)
+
+instance Foldable8 Type where
+  foldMap8 _ i _ t _ _ _ _ = \case
+    Void             -> mempty
+    NumType s nt     -> mempty
+    NominalType s i0 -> i i0
+    Ptr t0           -> t t0
+    FunPtr t0 ts     -> (t t0) <> (foldMap t ts)
+
+instance Foldable8 TyIdents where
+  foldMap8 _ _ ti _ _ _ _ _ = foldMap ti ._tyIdents
+
+instance Foldable8 TyIdent where
+  foldMap8 _ i _ t _ _ _ _ (TyIdent t0 i0) = (t t0) <> (i i0)
+
+instance Foldable8 Ident where
+  foldMap8 _ _ _ _ _ _ _ _ = mempty
+
+
+instance Traversable8 Items where
+  traverse8 _ _ _ _ _ _ i _ = items `traverseOf` traverse i
+
+instance Traversable8 Item where
+  traverse8 tis i ti t e b it its = \case
+    Nominal nomSort ident tyIdents       -> Nominal nomSort <$> i ident <*> tis tyIdents
+    Function        ident tyIdents block -> Function <$> i ident <*> tis tyIdents <*> b block
+
+instance Traversable8 Expr where
+  traverse8 _ i ti t e b it its = \case
+    Ident ident          -> Ident <$> i ident
+    Decl tyIdent exp     -> Decl <$> ti tyIdent <*> e exp
+    PrimMonOp sort e0    -> PrimMonOp sort <$> e e0
+    PrimBinOp sort e0 e1 -> PrimBinOp sort <$> e e0 <*> e e1
+    App e0 es            -> App <$> e e0 <*> traverse e es
+
+instance Traversable8 Type where
+  traverse8 _ i _ t _ _ _ _ = \case
+    Void             -> pure Void
+    NumType s nt     -> pure $ NumType s nt
+    NominalType s i0 -> NominalType s <$> i i0
+    Ptr t0           -> Ptr <$> t t0
+    FunPtr t0 ts     -> FunPtr <$> t t0 <*> traverse t ts
+
+instance Traversable8 TyIdents where
+  traverse8 _ _ ti _ _ _ _ _  = tyIdents `traverseOf` traverse ti
+
+instance Traversable8 TyIdent where
+  traverse8 _ i _ t _ _ _ _ (TyIdent t0 i0) = TyIdent <$> t t0 <*> i i0
+
+instance Traversable8 Ident where
+  traverse8 _ _ _ _ _ _ _ _ = pure . coerce
+
+
+
 instance NonTerminal Items where
   length = fromIntegral . S.length . _items
   canSelectRange _ = True
