@@ -30,7 +30,7 @@ import           Data.Proxy
 import           Data.Text as T hiding (length, index)
 import           Data.Type.Equality hiding (apply)
 import           GHC.TypeLits
-import           Reflex.Dom (MonadWidget)
+import           Reflex.Dom (MonadWidget, divClass)
 
 import           Control.Comonad.Cofree8
 import           Data.Functor8
@@ -386,7 +386,8 @@ renderChoicesInternal s index prefix proxy = do
                               Void8 Void8 Void8 (LiftBf8 Element Text)
                               7 Word]
       fundamentals = upCast <$> choiceList where
-  sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
+  divClass "popup"
+    $ sequence_ $ makeNode . runIdentity . layout (W maxBound) <$> fundamentals
 
 upCast :: forall f0 f1 f2 f3 f4 f5 f6 f7 n
        .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
