@@ -140,6 +140,11 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
       where i' = fromIntegral i
 
 type Cursor' a ann = Tree a (ann, Selection)
+type CursorInner' f a ann = CursorInner
+  f
+  Void8 Void8 Void8 Void8
+  Void8 Void8 Void8 (LiftBf8 Element a)
+  ann
 
 type EditT' m a ann r = StateT (Cursor' a ann) m r
 type Edit' a ann r = EditT' Identity a ann r

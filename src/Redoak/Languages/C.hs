@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -12,7 +13,7 @@
 
 module Redoak.Languages.C where
 
-import Control.Lens
+import Control.Lens hiding ((:<))
 import Control.Monad
 import Control.Monad.Identity
 import Control.Monad.Trans.Class
@@ -35,6 +36,7 @@ import Redoak.Language
 import Redoak.Language.Hole
 import Redoak.Language.DefaultInput
 import Redoak.Languages.Empty
+import Redoak.Languages.Fundamental (pattern (:<))
 import Redoak.Languages.Fundamental hiding ( Trunk
                                            , Ann', Ann'', Accum', AccumP, Accum''
                                            , Editor, Mode(..))
@@ -102,8 +104,9 @@ data TyIdent ident tyIdent tyIdents ty exp block item items
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Ident ident tyIdent tyIdents ty exp block item items
-  = Text Text
+  = Text { _text :: Text }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+makeLenses ''Text
 
 type RawC n ann = Cursor         TyIdents Ident TyIdent Type Expr Block Item Items n ann
 type C    n ann = CursorWithHole TyIdents Ident TyIdent Type Expr Block Item Items n ann
@@ -116,7 +119,7 @@ instance Functor8 Items where
 instance Functor8 Item where
   map8 i ti tis t e b it its = \case
     Nominal nomSort ident tyIdents       -> Nominal nomSort (i ident) (tis tyIdents)
-    Function        ident tyIdents block -> Function (i ident) (tis tyIdents) (b block)
+    Function        ident tyIdents block -> Function        (i ident) (tis tyIdents) (b block)
 
 instance Functor8 Expr where
   map8 i ti _ t e b it its = \case
@@ -444,13 +447,81 @@ instance Completable Ident where
   introductions = M.empty
 
 
-instance Language (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+emptySelect = Select $ Range (0,0)
+
+freshEmptySelect :: (Fresh ann, Monad m)
+                 => FreshT ann m (ann, SelectionInner Word)
+freshEmptySelect = (,emptySelect) <$> getFresh
+
+freshAtom txt = (\ann -> ann :< Atom txt) <$> freshEmptySelect
+
+pattern TIR ty ident <- (_ :< Node [ty, ident])
+
+instance RenderableNonTerminal Items where
+  convertNT = pure . LiftBf8 . Node . _items
+
+instance RenderableNonTerminal Item where
+  convertNT = fmap LiftBf8 . \case
+    Nominal sort name fields -> do
+      tag <- freshAtom $ case sort of
+        Struct -> "struct"
+        Union  -> "union"
+      return $ Node [tag, name, fields]
+    Function retTy args body -> return $ Node [retTy, args, body]
+
+instance RenderableNonTerminal Block where
+  convertNT = pure . LiftBf8 . Node . _block
+
+instance RenderableNonTerminal Expr where
+  convertNT = fmap LiftBf8 . \case
+    Ident (_ :< ident) -> pure ident
+    Decl tyIdent expr -> do
+      ann <- freshEmptySelect
+      pure $ Node [tyIdent, ann :< Atom "=", expr]
+    App fun args -> do
+      pure $ Node $ fun S.<| args
+    PrimMonOp sort expr -> do
+      tag <- freshAtom $ case sort of
+        Ref     -> "&"
+        Deref   -> "*"
+        BoolInv -> "!"
+        BinInv  -> "*"
+      return $ Node [tag, expr]
+    PrimBinOp sort e0 e1 ->  do
+      tag <- freshAtom $ case sort of
+        Add     -> "+"
+        Sub     -> "-"
+        Mult    -> "*"
+        Divide  -> "/"
+        BoolOr  -> "||"
+        BoolAnd -> "&&"
+        BinOr   -> "|"
+        BinAnd  -> "&"
+        BinXor  -> "^"
+      return $ Node [e0, tag, e1]
+
+
+instance RenderableNonTerminal Type where
+  convertNT = fmap LiftBf8 . \case
+
+
+instance RenderableNonTerminal TyIdents where
+  convertNT = pure . LiftBf8 . Node . _tyIdents
+
+instance RenderableNonTerminal TyIdent where
+  convertNT (TyIdent ty ident) = return $ LiftBf8 $ Node [ty, ident]
+
+instance RenderableNonTerminal Ident where
+  convertNT = pure . LiftBf8 . Atom . _text
+
+
+instance Language (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
                   (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) where
 
-  type Ann (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+  type Ann (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
            (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Ann'
 
-  type Accum (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
+  type Accum (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
              (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Accum'
 
   handleEvent = runStateOnly . handleEvent'
@@ -469,9 +540,10 @@ initState = ( (0, Select $ Range (0, 0)) `CF7` Filled (Items [])
               { _mode = Normal
               , _currentId = 1
               })
-
+{-
 instance Renderable
            (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
            (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items)
            Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) where
   convert = _
+-}

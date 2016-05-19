@@ -45,6 +45,7 @@ import           Redoak.Layout.Identity
 import           Redoak.View
 import           Redoak.Language hiding (index)
 import           Redoak.Language.DefaultInput
+import qualified Redoak.Languages.Fundamental as Fundamental
 import           Redoak.Languages.Fundamental (LiftBf8(..), Element(..))
 
 
@@ -105,10 +106,6 @@ instance NonTerminal f => NonTerminal (WithHole f) where
     (Filled e) -> Filled <$> modifyC e i f0 f1 f2 f3 f4 f5 f6 f7
     Unfilled   -> undefined -- could define with Applicative and pure,
                             -- but no valid index in this case anyways
-
---instance Completable f => Completable (WithHole f) where
---  introductions = Filled <$> introductions
-
 
 type CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7  n ann =
   Cofree8' (WithHole f0) (WithHole f1) (WithHole f2) (WithHole f3)
@@ -339,17 +336,32 @@ onEventFilling = \case
   _ -> return ()
 
 
+-- | Also squashes
+class NonTerminal f => RenderableNonTerminal f where
+  convertNT :: (Fresh ann, Monad m)
+            => f (Fundamental.Cursor' Text ann) (Fundamental.Cursor' Text ann)
+                 (Fundamental.Cursor' Text ann) (Fundamental.Cursor' Text ann)
+                 (Fundamental.Cursor' Text ann) (Fundamental.Cursor' Text ann)
+                 (Fundamental.Cursor' Text ann) (Fundamental.Cursor' Text ann)
+            -> FreshT ann m (Fundamental.CursorInner' (LiftBf8 Element Text) Text ann)
+
+instance RenderableNonTerminal f => RenderableNonTerminal (WithHole f) where
+  convertNT = \case
+    Filled f -> convertNT f
+    Unfilled -> return $ LiftBf8 $ Atom ">HOLE<"
+
+
 renderChoices :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
                             d0 d1 d2 d3 d4 d5 d6 d7
               .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, MonadWidget t m
-                 , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
-                 , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
+                 , RenderableNonTerminal (WithHole f0)
+                 , RenderableNonTerminal (WithHole f1)
+                 , RenderableNonTerminal (WithHole f2)
+                 , RenderableNonTerminal (WithHole f3)
+                 , RenderableNonTerminal (WithHole f4)
+                 , RenderableNonTerminal (WithHole f5)
+                 , RenderableNonTerminal (WithHole f6)
+                 , RenderableNonTerminal (WithHole f7))
               => AccumP' f0 f1 f2 f3 f4 f5 f6 f7
               -> m ()
 renderChoices accum = case accum^._2.mode of
@@ -366,53 +378,53 @@ renderChoices accum = case accum^._2.mode of
 renderChoicesInternal :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
                                     d0 d1 d2 d3 d4 d5 d6 d7
                       .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, MonadWidget t m
-                         , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
-                         , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
+                         , RenderableNonTerminal (WithHole f0)
+                         , RenderableNonTerminal (WithHole f1)
+                         , RenderableNonTerminal (WithHole f2)
+                         , RenderableNonTerminal (WithHole f3)
+                         , RenderableNonTerminal (WithHole f4)
+                         , RenderableNonTerminal (WithHole f5)
+                         , RenderableNonTerminal (WithHole f6)
+                         , RenderableNonTerminal (WithHole f7))
                       => AccumP' f0 f1 f2 f3 f4 f5 f6 f7
                       -> Word
                       -> Text
                       -> CursorWithHole d0 d1 d2 d3 d4 d5 d6 d7 n a
                       -> m ()
 renderChoicesInternal s index prefix proxy = do
-  let choiceList :: [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word]
-      Identity (choiceList, id') = flip runFreshT (s^._2.currentId)
-                                   $ makeChoices prefix proxy
-      fundamentals :: [Cursor Void8 Void8 Void8 Void8
-                              Void8 Void8 Void8 (LiftBf8 Element Text)
-                              7 Word]
-      fundamentals = upCast <$> choiceList where
+  let fundamentals :: [Cursor Void8 Void8 Void8 Void8
+                       Void8 Void8 Void8 (LiftBf8 Element Text)
+                       7 Word]
+      Identity (fundamentals, id') = flip runFreshT (s^._2.currentId) $ do
+        (choiceList :: [CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word]) <-
+          makeChoices prefix proxy
+        mapM upCast choiceList
 
       fundamental = (id' + 1, Select $ Range (index, index + 1))
                     `CF7` LiftBf8 (Node $ S.fromList fundamentals)
   divClass "popup"
     $ makeNode $ runIdentity $ layout (W maxBound) $ fundamental
 
-upCast :: forall f0 f1 f2 f3 f4 f5 f6 f7 n
+upCast :: forall m f0 f1 f2 f3 f4 f5 f6 f7 ann n
        .  ( CompletableAll f0 f1 f2 f3 f4 f5 f6 f7
-          , RenderableNonTerminal (WithHole f0) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f1) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f2) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f3) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f4) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f5) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f6) (LiftBf8 Element Text)
-          , RenderableNonTerminal (WithHole f7) (LiftBf8 Element Text))
-       => CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n Word
-       -> Cursor Void8 Void8 Void8 Void8 Void8 Void8 Void8
-                 (LiftBf8 Element Text)
-                 7 Word
+          , RenderableNonTerminal (WithHole f0)
+          , RenderableNonTerminal (WithHole f1)
+          , RenderableNonTerminal (WithHole f2)
+          , RenderableNonTerminal (WithHole f3)
+          , RenderableNonTerminal (WithHole f4)
+          , RenderableNonTerminal (WithHole f5)
+          , RenderableNonTerminal (WithHole f6)
+          , RenderableNonTerminal (WithHole f7)
+          , Fresh ann, Monad m)
+       => CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7 n ann
+       -> FreshT ann m (Fundamental.Cursor' Text ann)
 upCast = \case
-  CF0 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF1 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF2 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF3 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF4 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF5 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF6 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
-  CF7 a r -> a `CF7` convertNT (map8 upCast upCast upCast upCast upCast upCast upCast upCast r)
+  CF0 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF1 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF2 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF3 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF4 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF5 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF6 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  CF7 a r -> tag a . convertNT =<< traverse8 upCast upCast upCast upCast upCast upCast upCast upCast r
+  where tag (ann, _) = fmap $ CF7 (ann, Select $ Range (0, 0))
