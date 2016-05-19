@@ -108,8 +108,8 @@ data Ident ident tyIdent tyIdents ty exp block item items
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''Text
 
-type RawC n ann = Cursor         TyIdents Ident TyIdent Type Expr Block Item Items n ann
-type C    n ann = CursorWithHole TyIdents Ident TyIdent Type Expr Block Item Items n ann
+type RawC n ann = Cursor         Ident TyIdent TyIdents Type Expr Block Item Items n ann
+type C    n ann = CursorWithHole Ident TyIdent TyIdents Type Expr Block Item Items n ann
 
 
 
@@ -524,14 +524,20 @@ instance RenderableNonTerminal Ident where
   convertNT = pure . LiftBf8 . Atom . _text
 
 
-instance Language (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
-                  (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) where
+instance Language (WithHole Ident)    (WithHole TyIdent)
+                  (WithHole TyIdents) (WithHole Type)
+                  (WithHole Expr)     (WithHole Block)
+                  (WithHole Item)     (WithHole Items) where
 
-  type Ann (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
-           (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Ann'
+  type Ann (WithHole Ident)    (WithHole TyIdent)
+           (WithHole TyIdents) (WithHole Type)
+           (WithHole Expr)     (WithHole Block)
+           (WithHole Item)     (WithHole Items) = Ann'
 
-  type Accum (WithHole Ident) (WithHole TyIdents) (WithHole TyIdent) (WithHole Type)
-             (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items) = Accum'
+  type Accum (WithHole Ident)    (WithHole TyIdent)
+             (WithHole TyIdents) (WithHole Type)
+             (WithHole Expr)     (WithHole Block)
+             (WithHole Item)     (WithHole Items) = Accum'
 
   handleEvent = runStateOnly . handleEvent'
 
