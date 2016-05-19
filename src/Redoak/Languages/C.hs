@@ -19,7 +19,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import Data.Coerce
-import Data.Map (Map, fromList, empty)
+import Data.Map  as M (Map, fromList, empty, singleton, fromList)
 import Data.Maybe
 import Data.Monoid
 import Data.Sequence as S hiding ((:<))
@@ -66,7 +66,7 @@ data PrimMonOpSort
 
 data PrimBinOpSort
   = Add | Sub | Mult | Divide
-  | BoolOr | Booland
+  | BoolOr | BoolAnd
   | BinOr  | BinAnd | BinXor
   deriving (Eq, Ord, Show)
 
@@ -361,19 +361,87 @@ instance NonTerminal Ident where
 
 
 instance Completable Items where
+  identifier _ = Nothing
+  introductions = M.singleton "" $ Items [()]
 
 instance Completable Item where
+  identifier _ = Nothing
+  introductions = M.fromList
+    [ ("struct", Nominal Struct () ())
+    , ("union", Nominal Union () ())
+    , ("function", Function () () ())
+    ]
 
 instance Completable Block where
+  identifier _ = Nothing
+  introductions = M.singleton "" $ Block [()]
 
 instance Completable Expr where
+  identifier _ = Nothing
+  introductions = M.fromList
+    [ ("identifier", Ident ())
+    , ("variable", Decl () ())
+    , ("apply", App () [()])
+
+    , ("reference",   PrimMonOp Ref ())
+    , ("&",           PrimMonOp Ref ())
+    , ("dereference", PrimMonOp Deref ())
+    , ("*",           PrimMonOp Deref ())
+
+    , ("add",         PrimBinOp Add     () ())
+    , ("+",           PrimBinOp Add     () ())
+    , ("subtract",    PrimBinOp Sub     () ())
+    , ("-",           PrimBinOp Sub     () ())
+    , ("multiply",    PrimBinOp Mult    () ())
+    , ("**",          PrimBinOp Mult    () ())
+    , ("divide",      PrimBinOp Divide  () ())
+    , ("/",           PrimBinOp Divide  () ())
+    , ("logical or",  PrimBinOp BoolOr  () ())
+    , ("||",          PrimBinOp BoolOr  () ())
+    , ("logical and", PrimBinOp BoolAnd () ())
+    , ("&&",          PrimBinOp BoolAnd () ())
+    , ("bitwise or",  PrimBinOp BinOr   () ())
+    , ("|",           PrimBinOp BinOr   () ())
+    , ("bitwise and", PrimBinOp BinAnd  () ())
+    , ("&",           PrimBinOp BinAnd  () ())
+    , ("bitwise xor", PrimBinOp BinXor  () ())
+    , ("^",           PrimBinOp BinXor  () ())
+    ]
 
 instance Completable Type where
+  identifier _ = Nothing
+  introductions = M.fromList
+    [ ("void", Void)
+
+    , ("signed char",  NumType Signed Char)
+    , ("signed short", NumType Signed Short)
+    , ("signed int",   NumType Signed Int)
+    , ("signed long",  NumType Signed Long)
+
+    , ("unsigned char",  NumType Signed Char)
+    , ("unsigned short", NumType Signed Short)
+    , ("unsigned int",   NumType Signed Int)
+    , ("unsigned long",  NumType Signed Long)
+
+    , ("struct", NominalType Struct ())
+    , ("union", NominalType Struct ())
+
+    , ("pointer", Ptr ())
+    , ("*",       Ptr ())
+    , ("function pointer", FunPtr () [()])
+    ]
 
 instance Completable TyIdent where
+  identifier _ = Nothing
+  introductions = M.singleton "" $ TyIdent () ()
+
+instance Completable TyIdents where
+  identifier _ = Nothing
+  introductions = M.singleton "" $ TyIdents [()]
 
 instance Completable Ident where
-
+  identifier i = Just $ Text i
+  introductions = M.empty
 
 
 instance Language (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)

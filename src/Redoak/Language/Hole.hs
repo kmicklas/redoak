@@ -51,11 +51,11 @@ import           Redoak.Languages.Fundamental (LiftBf8(..), Element(..))
 
 
 instance Completable Void8 where
-  identifiers _ = Nothing
+  identifier _ = Nothing
   introductions = M.empty
 
 class NonTerminal f => Completable f where
-  identifiers :: Text -> Maybe (f () () () () () () () ())
+  identifier :: Text -> Maybe (f () () () () () () () ())
   -- | Introduction rules for auto-complete
   introductions :: Map Text (f () () () () () () () ())
 
@@ -202,7 +202,7 @@ fill :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
 fill prefix index = local' $ modifyT $ lift . fmap (!! fromIntegral index) . makeChoices prefix
 
 choices :: Completable f => Text -> [f () () () () () () () ()]
-choices prefix = maybeToList (identifiers prefix) ++ M.elems (prunePrefix prefix introductions)
+choices prefix = maybeToList (identifier prefix) ++ M.elems (prunePrefix prefix introductions)
 
 countChoices :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
              .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
