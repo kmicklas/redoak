@@ -13,33 +13,35 @@
 
 module Redoak.Languages.C where
 
-import Control.Lens hiding ((:<))
-import Control.Monad
-import Control.Monad.Identity
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.State
-import Data.Coerce
-import Data.Map  as M (Map, fromList, empty, singleton, fromList)
-import Data.Maybe
-import Data.Monoid
-import Data.Sequence as S hiding ((:<))
-import Data.Text as T hiding (copy)
+import           Control.Lens hiding ((:<))
+import           Control.Monad
+import           Control.Monad.Identity
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.State
+import           Data.Coerce
+import           Data.Map as M (Map, fromList, empty, singleton, fromList)
+import           Data.Maybe
+import           Data.Monoid
+import           Data.Sequence as S hiding ((:<))
+import           Data.Text as T hiding (copy)
 
-import Control.Comonad.Cofree8
-import Data.Functor8
-import Data.Foldable8
-import Data.Traversable8
+import           Control.Comonad.Cofree8
+import           Data.Functor8
+import           Data.Foldable8
+import           Data.Traversable8
 
-import Redoak.Event
-import Redoak.Language
-import Redoak.Language.Hole
-import Redoak.Language.DefaultInput
-import Redoak.Languages.Empty
-import Redoak.Languages.Fundamental (pattern (:<))
-import Redoak.Languages.Fundamental hiding ( Trunk
-                                           , Ann', Ann'', Accum', AccumP, Accum''
-                                           , Editor, Mode(..))
+import           Redoak.Event
+import           Redoak.Language
+import           Redoak.Language.Hole
+import           Redoak.Language.DefaultInput
+import           Redoak.Languages.Empty
+import           Redoak.Languages.Fundamental (pattern (:<))
+import           Redoak.Languages.Fundamental hiding ( Trunk
+                                                     , Ann', Ann'', Accum', AccumP, Accum''
+                                                     , Editor, Mode(..)
+                                                     , currentId, _currentId)
+import qualified Redoak.Languages.Fundamental as Fundamental
 
 
 
@@ -555,10 +557,70 @@ initState = ( (0, Select $ Range (0, 0)) `CF7` Filled (Items [])
               { _mode = Normal
               , _currentId = 1
               })
-{-
-instance Renderable
-           (WithHole Void8) (WithHole Ident) (WithHole TyIdent) (WithHole Type)
-           (WithHole Expr)  (WithHole Block) (WithHole Item)    (WithHole Items)
-           Void8 Void8 Void8 Void8 Void8 Void8 Void8 (LiftBf8 Element Text) where
-  convert = _
--}
+
+mapCursorAnn :: (Word -> Word)
+             -> (ann, Selection)
+             -> (ann, Selection)
+mapCursorAnn f = fmap $ \case
+  Descend i             -> Descend $ f i
+  Select (Single i)     -> Select $ Range (f i, f i)
+  Select (Range (a, b)) -> Select $ Range (f a, case b of
+                                           0 -> f 0
+                                           n -> f (b - 1) + 1)
+
+rebuild :: (ann, Selection)
+        -> Fundamental.CursorInner' (LiftBf8 Element Text) Text ann
+        -> (Word -> Word)
+        -> Fundamental.Cursor' Text ann
+rebuild a r f = CF7 (mapCursorAnn f a) r
+
+conv :: AccumP  -> Fundamental.Cursor' Text Word
+conv (t, e) = fst $ runIdentity $ runFreshT (conv' t) $ e^.currentId
+
+conv' :: (Monad m, Fresh ann)
+      => C n ann -> FreshT ann m (Fundamental.Cursor' Text ann)
+conv' = \case
+  CF0 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ id
+  CF1 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ id
+  CF2 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ id
+  CF3 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ case r of
+      Unfilled -> id
+      Filled other -> case other of
+        Void            -> id
+        NumType _ _     -> id
+        NominalType _ _ -> (+1)
+        Ptr _           -> id
+  CF4 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $  case r of
+      Unfilled -> id
+      Filled other -> case other of
+        Ident _ -> id
+        Decl _ _        -> \case
+          0             -> 0
+          1             -> 2
+        PrimMonOp _ _   -> (+1)
+        PrimBinOp _ _ _ -> \case
+          0             -> 0
+          1             -> 2
+        App _ _         -> id
+  CF5 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ id
+  CF6 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ case r of
+      Unfilled -> id
+      Filled (Nominal _ _ _) -> (+1)
+      Filled (Function _ _ _) -> id
+  CF7 a r -> do
+    inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
+    return $ rebuild a inner $ id

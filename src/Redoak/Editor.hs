@@ -47,5 +47,5 @@ splitMultiplexed :: MonadWidget t m
 splitMultiplexed = \case
   (Fundamental a) -> (fst a, t, w)
     where (t, w) = getMessage a
-  (C a)           -> (convert $ fst a, t, w)
+  (C a)           -> (C.conv a, t, w)
     where (t, w) = getMessage a
