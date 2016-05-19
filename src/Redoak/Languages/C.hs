@@ -129,6 +129,9 @@ instance Functor8 Expr where
     PrimBinOp sort e0 e1 -> PrimBinOp sort (e e0) (e e1)
     App e0 es            -> App (e e0) (e <$> es)
 
+instance Functor8 Block where
+  map8 _ _ _ _ e _ _ _ = block %~ fmap e
+
 instance Functor8 Type where
   map8 i _ _ t _ _ _ _ = \case
     Void             -> Void
@@ -155,6 +158,9 @@ instance Foldable8 Item where
   foldMap8 i ti tis t e b it its = \case
     Nominal _ ident tyIdents       -> (i ident) <> (tis tyIdents)
     Function  ident tyIdents block -> (i ident) <> (tis tyIdents) <> (b block)
+
+instance Foldable8 Block where
+  foldMap8 _ _ _ _ e _ _ _ = foldMap e . _block
 
 instance Foldable8 Expr where
   foldMap8 i ti _ t e b it its = \case
@@ -189,6 +195,9 @@ instance Traversable8 Item where
   traverse8 i ti tis t e b it its = \case
     Nominal nomSort ident tyIdents       -> Nominal nomSort <$> i ident <*> tis tyIdents
     Function        ident tyIdents block -> Function <$> i ident <*> tis tyIdents <*> b block
+
+instance Traversable8 Block where
+  traverse8 _ _ _ _ e _ _ _ = block `traverseOf` traverse e
 
 instance Traversable8 Expr where
   traverse8 i ti _ t e b it its = \case
