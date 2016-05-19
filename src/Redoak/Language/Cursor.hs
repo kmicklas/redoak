@@ -454,3 +454,12 @@ descendAll direction = do
           modify $ modifyAnn $ second $ const $ Select $ if useRange
                                                          then Range (i, i)
                                                          else Single i
+
+delete :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
+       => EditT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann ()
+delete = local $ do
+  (_, Select tip) <- getAnn <$> get
+  let tip' = case tip of
+        Single i     -> (i, i + 1)
+        Range (a, b) -> (min a b, max a b)
+  mapStatePoly ntfCls $ modify $ deleteX tip'

@@ -24,7 +24,7 @@ class Traversable8 f => NonTerminal f where
   -- | Can we select a range of adjacent children or only a single child at a time?
   canSelectRange :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Bool
 
-  -- | Will `indexC` and `replaceC` work?
+  -- | Will the `*C` functions work
   canDescend :: forall a0 a1 a2 a3 a4 a5 a6 a7 . f a0 a1 a2 a3 a4 a5 a6 a7 -> Bool
 
   indexC :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
@@ -46,6 +46,12 @@ class Traversable8 f => NonTerminal f where
           -> (a4 -> m a4)          -> (a5 -> m a5)
           -> (a6 -> m a6)          -> (a7 -> m a7)
           -> m (f a0 a1 a2 a3 a4 a5 a6 a7)
+
+  -- | No-op if not possible
+  deleteX :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
+          .  (Word, Word)
+          -> f a0 a1 a2 a3 a4 a5 a6 a7
+          -> f a0 a1 a2 a3 a4 a5 a6 a7
 
 instance Class (Functor8 f) (NonTerminal f) where cls = Sub Dict
 

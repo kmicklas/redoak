@@ -13,3 +13,4 @@ instance NonTerminal Void8 where
   canDescend     = \case {}
   indexC         = \case {}
   modifyC        = \case {}
+  deleteX        = \case {}

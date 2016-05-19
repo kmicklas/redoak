@@ -135,9 +135,16 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
     Node s -> k $ S.index s (fromIntegral i)
 
   modifyC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
-    Atom _ -> error "modifyC: can't' descend into atom"
+    Atom _ -> error "modifyC: can't' descend into atom"1
     Node s -> LiftBf8 <$> Node <$> flip (S.update i') s <$> k (S.index s i')
       where i' = fromIntegral i
+
+  deleteX range = lowerBf8 %~ mapIsSequence (deleteSubSeq range)
+
+deleteSubSeq :: forall s. IsSequence s => Range Word -> s -> s
+deleteSubSeq (from, for) seq = lpart <> rpart
+  where lpart = SS.take (fromIntegral from) seq
+        rpart = SS.drop (fromIntegral for)  seq
 
 type Cursor' a ann = Tree a (ann, Selection)
 type CursorInner' f a ann = CursorInner
@@ -168,23 +175,6 @@ getSelection = local $ do
         getRange (start, end) =
           SS.take (fromIntegral $ diff start end) .
           SS.drop (fromIntegral $ min start end)
-
--- TODO: overlap between delete and change
-
-delete :: forall m ann atom
-       .  Fresh ann
-       => IsSequence atom
-       => Monad m
-       => EditT' (FreshT ann m) atom ann ()
-delete = local $ do
-  (a, Select (Range (start, end))) `CF7` (LiftBf8 sel) <- get
-  let front = min start end
-  let back  = max start end
-  let f :: forall s. IsSequence s => s -> s
-      f seq = lpart <> rpart
-        where lpart = SS.take (fromIntegral front) seq
-              rpart = SS.drop (fromIntegral back)  seq
-  put $ ((a, Select (Range (front, front))) :<) $ mapIsSequence f sel
 
 change :: forall m ann atom
        .  Fresh ann

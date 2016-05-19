@@ -24,7 +24,8 @@ import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Constraint
 import           Data.Functor.Identity
-import           Data.Map as M
+import           Data.Map (Map)
+import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Proxy
 import           Data.Sequence as S hiding ((:<), length, index)
@@ -106,6 +107,10 @@ instance NonTerminal f => NonTerminal (WithHole f) where
     (Filled e) -> Filled <$> modifyC e i f0 f1 f2 f3 f4 f5 f6 f7
     Unfilled   -> undefined -- could define with Applicative and pure,
                             -- but no valid index in this case anyways
+
+  deleteX b = \case
+    Filled e -> Filled $ deleteX b e
+    Unfilled -> Unfilled
 
 type CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7  n ann =
   Cofree8' (WithHole f0) (WithHole f1) (WithHole f2) (WithHole f3)
@@ -300,7 +305,7 @@ onEventNormal e = (apply <$> basicTraversal e) `orElse` case e of
 
   KeyPress 'a' -> apply $ tryEdit selectAll
   KeyPress 's' -> apply $ tryEdit switchBounds
-  --KeyPress 'd' -> apply delete
+  KeyPress 'd' -> apply delete
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
   KeyPress 'g' -> apply $ tryEdit selectOne
 
