@@ -41,7 +41,7 @@ import Redoak.Languages.Fundamental hiding ( Trunk
 
 
 
-newtype Items tyIdents ident tyIdent ty exp block item items
+newtype Items ident tyIdent tyIdents ty exp block item items
   = Items { _items :: Seq item }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''Items
@@ -49,12 +49,12 @@ makeLenses ''Items
 data NominalSort = Struct | Union
   deriving (Eq, Ord, Show)
 
-data Item tyIdents ident tyIdent ty exp block item items
+data Item ident tyIdent tyIdents ty exp block item items
   = Nominal NominalSort ident tyIdents
   | Function            ident tyIdents block
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-newtype Block tyIdents ident tyIdent ty exp block item items
+newtype Block ident tyIdent tyIdents ty exp block item items
   = Block { _block :: Seq exp }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''Block
@@ -70,7 +70,7 @@ data PrimBinOpSort
   | BinOr  | BinAnd | BinXor
   deriving (Eq, Ord, Show)
 
-data Expr tyIdents ident tyIdent ty exp block item items
+data Expr ident tyIdent tyIdents ty exp block item items
   = Ident ident
   | Decl tyIdent exp
   | PrimMonOp PrimMonOpSort exp
@@ -84,7 +84,7 @@ data Signage = Signed | Unsigned
 data NumType = Char | Short | Int | Long
   deriving (Eq, Ord, Show)
 
-data Type tyIdents ident tyIdent ty exp block item items
+data Type ident tyIdent tyIdents ty exp block item items
   = Void
   | NumType Signage NumType
   | NominalType NominalSort ident
@@ -92,16 +92,16 @@ data Type tyIdents ident tyIdent ty exp block item items
   | FunPtr ty (Seq ty)
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-newtype TyIdents tyIdents ident tyIdent ty exp block item items
+newtype TyIdents ident tyIdent tyIdents ty exp block item items
   = TyIdents { _tyIdents :: (Seq tyIdent) }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 makeLenses ''TyIdents
 
-data TyIdent tyIdents ident tyIdent ty exp block item items
+data TyIdent ident tyIdent tyIdents ty exp block item items
   = TyIdent ty ident
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-data Ident tyIdents ident tyIdent ty exp block item items
+data Ident ident tyIdent tyIdents ty exp block item items
   = Text Text
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -114,12 +114,12 @@ instance Functor8 Items where
   map8 _ _ _ _ _ _ i _ = items %~ fmap i
 
 instance Functor8 Item where
-  map8 tis i ti t e b it its = \case
+  map8 i ti tis t e b it its = \case
     Nominal nomSort ident tyIdents       -> Nominal nomSort (i ident) (tis tyIdents)
     Function        ident tyIdents block -> Function (i ident) (tis tyIdents) (b block)
 
 instance Functor8 Expr where
-  map8 _ i ti t e b it its = \case
+  map8 i ti _ t e b it its = \case
     Ident ident          -> Ident (i ident)
     Decl tyIdent exp     -> Decl (ti tyIdent) (e exp)
     PrimMonOp sort e0    -> PrimMonOp sort (e e0)
@@ -127,7 +127,7 @@ instance Functor8 Expr where
     App e0 es            -> App (e e0) (e <$> es)
 
 instance Functor8 Type where
-  map8 _ i _ t _ _ _ _ = \case
+  map8 i _ _ t _ _ _ _ = \case
     Void             -> Void
     NumType s nt     -> NumType s nt
     NominalType s i0 -> NominalType s (i i0)
@@ -135,10 +135,10 @@ instance Functor8 Type where
     FunPtr t0 ts     -> FunPtr (t t0) (t <$> ts)
 
 instance Functor8 TyIdents where
-  map8 _ _ ti _ _ _ _ _ = tyIdents %~ fmap ti
+  map8 _ ti _ _ _ _ _ _ = tyIdents %~ fmap ti
 
 instance Functor8 TyIdent where
-  map8 _ i _ t _ _ _ _ (TyIdent t0 i0) = TyIdent (t t0) (i i0)
+  map8 i _ _ t _ _ _ _ (TyIdent t0 i0) = TyIdent (t t0) (i i0)
 
 instance Functor8 Ident where
   map8 _ _ _ _ _ _ _ _ = coerce
@@ -149,12 +149,12 @@ instance Foldable8 Items where
   foldMap8 _ _ _ _ _ _ i _ = foldMap i . _items
 
 instance Foldable8 Item where
-  foldMap8 tis i ti t e b it its = \case
+  foldMap8 i ti tis t e b it its = \case
     Nominal _ ident tyIdents       -> (i ident) <> (tis tyIdents)
     Function  ident tyIdents block -> (i ident) <> (tis tyIdents) <> (b block)
 
 instance Foldable8 Expr where
-  foldMap8 _ i ti t e b it its = \case
+  foldMap8 i ti _ t e b it its = \case
     Ident ident          -> i ident
     Decl tyIdent exp     -> (ti tyIdent) <> (e exp)
     PrimMonOp sort e0    -> e e0
@@ -162,7 +162,7 @@ instance Foldable8 Expr where
     App e0 es            -> (e e0) <> (foldMap e es)
 
 instance Foldable8 Type where
-  foldMap8 _ i _ t _ _ _ _ = \case
+  foldMap8 i _ _ t _ _ _ _ = \case
     Void             -> mempty
     NumType s nt     -> mempty
     NominalType s i0 -> i i0
@@ -170,10 +170,10 @@ instance Foldable8 Type where
     FunPtr t0 ts     -> (t t0) <> (foldMap t ts)
 
 instance Foldable8 TyIdents where
-  foldMap8 _ _ ti _ _ _ _ _ = foldMap ti ._tyIdents
+  foldMap8 _ ti _ _ _ _ _ _ = foldMap ti ._tyIdents
 
 instance Foldable8 TyIdent where
-  foldMap8 _ i _ t _ _ _ _ (TyIdent t0 i0) = (t t0) <> (i i0)
+  foldMap8 i _ _ t _ _ _ _ (TyIdent t0 i0) = (t t0) <> (i i0)
 
 instance Foldable8 Ident where
   foldMap8 _ _ _ _ _ _ _ _ = mempty
@@ -183,12 +183,12 @@ instance Traversable8 Items where
   traverse8 _ _ _ _ _ _ i _ = items `traverseOf` traverse i
 
 instance Traversable8 Item where
-  traverse8 tis i ti t e b it its = \case
+  traverse8 i ti tis t e b it its = \case
     Nominal nomSort ident tyIdents       -> Nominal nomSort <$> i ident <*> tis tyIdents
     Function        ident tyIdents block -> Function <$> i ident <*> tis tyIdents <*> b block
 
 instance Traversable8 Expr where
-  traverse8 _ i ti t e b it its = \case
+  traverse8 i ti _ t e b it its = \case
     Ident ident          -> Ident <$> i ident
     Decl tyIdent exp     -> Decl <$> ti tyIdent <*> e exp
     PrimMonOp sort e0    -> PrimMonOp sort <$> e e0
@@ -196,7 +196,7 @@ instance Traversable8 Expr where
     App e0 es            -> App <$> e e0 <*> traverse e es
 
 instance Traversable8 Type where
-  traverse8 _ i _ t _ _ _ _ = \case
+  traverse8 i _ _ t _ _ _ _ = \case
     Void             -> pure Void
     NumType s nt     -> pure $ NumType s nt
     NominalType s i0 -> NominalType s <$> i i0
@@ -204,10 +204,10 @@ instance Traversable8 Type where
     FunPtr t0 ts     -> FunPtr <$> t t0 <*> traverse t ts
 
 instance Traversable8 TyIdents where
-  traverse8 _ _ ti _ _ _ _ _  = tyIdents `traverseOf` traverse ti
+  traverse8 _ ti _ _ _ _ _ _  = tyIdents `traverseOf` traverse ti
 
 instance Traversable8 TyIdent where
-  traverse8 _ i _ t _ _ _ _ (TyIdent t0 i0) = TyIdent <$> t t0 <*> i i0
+  traverse8 i _ _ t _ _ _ _ (TyIdent t0 i0) = TyIdent <$> t t0 <*> i i0
 
 instance Traversable8 Ident where
   traverse8 _ _ _ _ _ _ _ _ = pure . coerce
@@ -228,7 +228,7 @@ instance NonTerminal Item where
     Function _ _ _ -> 3
   canSelectRange _ = False
   canDescend _ = True
-  indexC  it ix  tis i _ _ _ b _ _ = case it of
+  indexC  it ix  i _ tis _ _ b _ _ = case it of
     Nominal _ i0 tis0    -> case ix of
       0 -> i i0
       1 -> tis tis0
@@ -236,7 +236,7 @@ instance NonTerminal Item where
       0 -> i i0
       1 -> tis tis0
       2 -> b blk
-  modifyC it ix  tis i _ _ _ b _ _ = case it of
+  modifyC it ix  i _ tis _ _ b _ _ = case it of
     Nominal s i0 tis0     -> case ix of
       0 -> (\x -> Nominal s x tis0) <$> i i0
       1 -> (\x -> Nominal s i0 x) <$> tis tis0
@@ -264,7 +264,7 @@ instance NonTerminal Expr where
     App _ _ -> True
     _ -> False
   canDescend _ = True
-  indexC  it ix  tis i ti _ e b _ _ = case it of
+  indexC  it ix  i ti tis _ e b _ _ = case it of
     Ident txt -> case ix of
       0 -> i txt
     Decl ti0 e0 -> case ix of
@@ -278,7 +278,7 @@ instance NonTerminal Expr where
     App e0 es -> case ix of
       0 -> e e0
       n -> e (es `S.index` fromIntegral (n - 1))
-  modifyC  it ix  tis i ti _ e b _ _ = case it of
+  modifyC  it ix  i ti tis _ e b _ _ = case it of
     Ident txt -> case ix of
       0 -> Ident <$> i txt
     Decl ti0 e0 -> case ix of
@@ -310,7 +310,7 @@ instance NonTerminal Type where
     NominalType _ _ -> True
     Ptr _           -> True
     FunPtr _ _      -> True
-  indexC  it ix  tis i ti t _ _ _ _ = case it of
+  indexC  it ix  i ti tis t _ _ _ _ = case it of
     Void             -> undefined
     NumType s nt     -> undefined
     NominalType s i0 -> case ix of
@@ -320,7 +320,7 @@ instance NonTerminal Type where
     FunPtr t0 ts     -> case ix of
       0 -> t t0
       n -> t (ts `S.index` fromIntegral (n - 1))
-  modifyC it ix  tis i ti t _ _ _ _ = case it of
+  modifyC it ix  i ti tis t _ _ _ _ = case it of
     Void             -> undefined
     NumType s nt     -> undefined
     NominalType s i0 -> case ix of
@@ -336,18 +336,18 @@ instance NonTerminal TyIdents where
   length = fromIntegral . S.length . _tyIdents
   canSelectRange _ = True
   canDescend _ = True
-  indexC  (TyIdents s) i _ _ k _ _ _ _ _ = k $ S.index s $ fromIntegral i
-  modifyC (TyIdents s) i _ _ k _ _ _ _ _ = TyIdents <$> flip (S.update i') s <$> k (S.index s i')
+  indexC  (TyIdents s) i _ k _ _ _ _ _ _ = k $ S.index s $ fromIntegral i
+  modifyC (TyIdents s) i _ k _ _ _ _ _ _ = TyIdents <$> flip (S.update i') s <$> k (S.index s i')
     where i' = fromIntegral i
 
 instance NonTerminal TyIdent where
   length _ = 2
   canSelectRange _ = False
   canDescend _ = True
-  indexC  (TyIdent t0 i0) ix  _ i _ t _ _ _ _ = case ix of
+  indexC  (TyIdent t0 i0) ix  i _ _ t _ _ _ _ = case ix of
     0 -> t t0
     1 -> i i0
-  modifyC (TyIdent t0 i0) ix  _ i _ t _ _ _ _ = case ix of
+  modifyC (TyIdent t0 i0) ix  i _ _ t _ _ _ _ = case ix of
     0 -> (\x -> TyIdent x i0) <$> t t0
     1 -> (\x -> TyIdent t0 x) <$> i i0
 
