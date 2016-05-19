@@ -471,12 +471,17 @@ pattern TIR ty ident <- (_ :< Node [ty, ident])
 instance RenderableNonTerminal Items where
   convertNT = pure . LiftBf8 . Node . _items
 
+nomSortAtom :: (Fresh ann, Monad m)
+            => NominalSort
+            -> FreshT ann m (Tree Text (ann, SelectionInner Word))
+nomSortAtom = freshAtom . \case
+  Struct -> "struct"
+  Union  -> "union"
+
 instance RenderableNonTerminal Item where
   convertNT = fmap LiftBf8 . \case
     Nominal sort name fields -> do
-      tag <- freshAtom $ case sort of
-        Struct -> "struct"
-        Union  -> "union"
+      tag <- nomSortAtom sort
       return $ Node [tag, name, fields]
     Function retTy args body -> return $ Node [retTy, args, body]
 
@@ -487,8 +492,8 @@ instance RenderableNonTerminal Expr where
   convertNT = fmap LiftBf8 . \case
     Ident (_ :< ident) -> pure ident
     Decl tyIdent expr -> do
-      ann <- freshEmptySelect
-      pure $ Node [tyIdent, ann :< Atom "=", expr]
+      eq <- freshAtom "="
+      pure $ Node [tyIdent, eq, expr]
     App fun args -> do
       pure $ Node $ fun S.<| args
     PrimMonOp sort expr -> do
@@ -511,9 +516,29 @@ instance RenderableNonTerminal Expr where
         BinXor  -> "^"
       return $ Node [e0, tag, e1]
 
-
 instance RenderableNonTerminal Type where
   convertNT = fmap LiftBf8 . \case
+    Void             -> return $ Atom "Void"
+    NumType s nt     -> do
+      s' <- freshAtom $ case s of
+        Signed -> "signed"
+        Unsigned -> "unsigned"
+      nt' <- freshAtom $ case nt of
+        Char  -> "char"
+        Short -> "short"
+        Int   -> "int"
+        Long  -> "long"
+      return $ Node [s', nt']
+
+    NominalType s i0 -> do
+      s' <- nomSortAtom s
+      return $ Node [s', i0]
+    Ptr t0           -> do
+      star <- freshAtom "*"
+      return $ Node [star, t0]
+    FunPtr t0 ts     -> do
+      star <- freshAtom "(*)"
+      return $ Node $ t0 S.<| star S.<| ts
 
 
 instance RenderableNonTerminal TyIdents where
