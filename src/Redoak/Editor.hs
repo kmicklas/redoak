@@ -30,7 +30,7 @@ data Multiplexed
  = Fundamental Fundamental.AccumP
  | C           C.AccumP
 
-initState = Fundamental Fundamental.initState
+initState = C C.initState
 
 handleEvent' :: KeyEvent -> Multiplexed -> Multiplexed
 handleEvent' e = \case
@@ -43,9 +43,9 @@ handleEvents es a = foldl' (flip handleEvent') a es
 
 splitMultiplexed :: MonadWidget t m
                  => Multiplexed
-                 -> (Fundamental.Term', Text, m ())
+                 -> (Fundamental.Term', Text, m (), String)
 splitMultiplexed = \case
-  (Fundamental a) -> (fst a, t, w)
+  (Fundamental a) -> (fst a, t, w, show $ a)
     where (t, w) = getMessage a
-  (C a)           -> (C.conv a, t, w)
+  (C a)           -> (C.conv a, t, w, show $ a)
     where (t, w) = getMessage a

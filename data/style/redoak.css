@@ -4,6 +4,7 @@
   --selected-color:    #7FFFD4;
   --atom-in-selection: #D3FAD8;
   --cursor-color:      blue;
+  --popup-background:  rgba(255,0,0,0.5);
 }
 
 .content, .atom-selection {
@@ -129,6 +130,22 @@ html, body {
   box-sizing: border-box;
 }
 
+.popup {
+  display: table;
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	padding: 4em;
+  background-color: var(--popup-background);
+  top: 0;
+  left: 0;
+}
+
+.popupInner {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
 
 /* Metadata */
 

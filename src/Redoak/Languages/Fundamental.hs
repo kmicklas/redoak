@@ -296,6 +296,7 @@ data Editor
     , currentId :: !Word
     , clipboard :: Trunk Text ()
     }
+  deriving (Show)
 
 data Mode
   = Normal

@@ -88,7 +88,7 @@ instance Traversable8 f => Traversable8 (WithHole f) where
 instance NonTerminal f => NonTerminal (WithHole f) where
   length = \case
     (Filled e) -> length e
-    Unfilled   -> 0
+    Unfilled   -> 1
 
   canSelectRange = \case
     (Filled e) -> canSelectRange e
@@ -191,12 +191,21 @@ makeChoices prefix = \case
                       (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole) (\_ -> makeHole)
               <$> Filled <$> choices prefix
 
+
+safeIndex :: [a] -> Word -> Maybe a
+safeIndex xs n = Prelude.foldr f (\_ -> Nothing) xs n
+  where f x r k = case k of
+          0 -> Just x
+          _ -> r (k-1)
+
 fill :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
      => Text
      -> Word
      -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
-fill prefix index = local' $ modifyT $ lift . fmap (!! fromIntegral index) . makeChoices prefix
+fill prefix index = local $ modifyT $ f <=< lift . makeChoices prefix
+  where f :: forall x m'. Monad m' => [x] -> MaybeT m' x
+        f xs = MaybeT $ return $ safeIndex xs index
 
 choices :: Completable f => Text -> [f () () () () () () () ()]
 choices prefix = maybeToList (identifier prefix) ++ M.elems (prunePrefix prefix introductions)
@@ -205,7 +214,7 @@ countChoices :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
              .  (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
              => Text
              -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann Word
-countChoices prefix = local' $ do
+countChoices prefix = local $ do
   subtree <- get
   let count :: Int
       count = case subtree of
@@ -241,6 +250,7 @@ data Editor --f0 f1 f2 f3 f4 f5 f6 f7
     , _currentId :: !Word
 --    , _clipboard :: Trunk' f0 f1 f2 f3 f4 f5 f6 f7
     }
+  deriving (Eq, Ord, Show)
 
 data Mode
   = Normal
@@ -294,10 +304,10 @@ onEventNormal e = (apply <$> basicTraversal e) `orElse` case e of
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
   KeyPress 'g' -> apply $ tryEdit selectOne
 
-
   KeyPress 'h' -> do
-    single <- apply $ maybeEdit' $ local' guardSingle
-    when (isJust single) $ gotoMode $ Filling 0 ""
+    single <- apply $ maybeEdit' $ local guardSingle
+    when (isJust single) $ do
+      gotoMode $ Filling 0 ""
 
   _ -> return ()
 
@@ -329,8 +339,6 @@ onEventFilling = \case
     if T.null pf
       then gotoMode Normal
       else _2 . mode . prefix %= T.init
-
-  KeyStroke Down Space (Modifiers _ _ False) -> apply $ tryEdit pop
 
   KeyPress c -> _2 . mode . prefix %= (`T.snoc` c)
   _ -> return ()
@@ -367,13 +375,11 @@ renderChoices :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
 renderChoices accum = case accum^._2.mode of
   Normal -> return ()
   Filling index prefix -> do
-    let action :: MaybeEditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7 7 Word (m ())
-        action = local' $ do
+    let action :: EditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7 7 Word (m ())
+        action = local $ do
           subtree <- get
           return $ renderChoicesInternal accum index prefix subtree
-    case runIdentity $ runMaybeT $ fmap fst $ runStateT action $ accum^._1 of
-      Nothing -> return ()
-      Just m  -> m
+    runIdentity $ fmap fst $ runStateT action $ accum^._1
 
 renderChoicesInternal :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
                                     d0 d1 d2 d3 d4 d5 d6 d7
@@ -402,7 +408,7 @@ renderChoicesInternal s index prefix proxy = do
 
       fundamental = (id' + 1, Select $ Range (index, index + 1))
                     `CF7` LiftBf8 (Node $ S.fromList fundamentals)
-  divClass "popup"
+  divClass "popup" $ divClass "popupInner"
     $ makeNode $ runIdentity $ layout (W maxBound) $ fundamental
 
 upCast :: forall m f0 f1 f2 f3 f4 f5 f6 f7 ann n

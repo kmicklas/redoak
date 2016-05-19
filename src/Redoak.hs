@@ -41,13 +41,12 @@ spanId id = elAttr "span" ("id" =: id)
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
 editor keys = divId "editor" $ do
-  (cursors, stati, widgets) <- do
+  (cursors, stati, widgets, debug) <- do
     states <- mapDyn splitMultiplexed =<< foldDyn handleEvents initState keys
-    (,,) <$> mapDyn (\(d,_,_) -> d) states
-         <*> mapDyn (\(_,d,_) -> d) states
-         <*> mapDyn (\(_,_,d) -> d) states
-
-  _ <- widgetHoldInternal (pure ()) $ updated widgets
+    (,,,) <$> mapDyn (\(d,_,_,_) -> d) states
+          <*> mapDyn (\(_,d,_,_) -> d) states
+          <*> mapDyn (\(_,_,d,_) -> d) states
+          <*> mapDyn (\(_,_,_,d) -> d) states
 
   rec (resizeEvent, contentEl) <- resizeDetectorWithStyle
                                   -- TODO replace 93 with something like "availible"
@@ -60,6 +59,7 @@ editor keys = divId "editor" $ do
         zipped <- combineDyn (,) dimensionsDyn cursors
         let layout' (w, c) = layout (W $ floor $ w / 15) c
         _ <- dyn =<< mapDyn (makeNode . runIdentity . layout') zipped
+        el "div" $ dynText debug
         return ()
   elAttr "footer" ("id" =: "status") $ do
     let pathString (is, tip) =
@@ -71,3 +71,7 @@ editor keys = divId "editor" $ do
           ]
     spanId "path" $ dynText =<< mapDyn (pathString . path) cursors
     spanId "mode" $ dynText =<< mapDyn T.unpack stati
+
+  _ <- widgetHoldInternal (pure ()) $ updated widgets
+
+  return ()

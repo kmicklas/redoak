@@ -552,7 +552,7 @@ type Term'' n = C n Ann'
 type Trunk  = Term'' 7
 
 initState :: AccumP
-initState = ( (0, Select $ Range (0, 0)) `CF7` Filled (Items [])
+initState = ( (0, Select $ Single 0) `CF7` Unfilled
             , Editor
               { _mode = Normal
               , _currentId = 1
@@ -563,7 +563,7 @@ mapCursorAnn :: (Word -> Word)
              -> (ann, Selection)
 mapCursorAnn f = fmap $ \case
   Descend i             -> Descend $ f i
-  Select (Single i)     -> Select $ Range (f i, f i)
+  Select (Single i)     -> Select $ Range (f i, f i + 1)
   Select (Range (a, b)) -> Select $ Range (f a, case b of
                                            0 -> f 0
                                            n -> f (b - 1) + 1)
