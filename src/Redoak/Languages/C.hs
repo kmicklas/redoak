@@ -228,23 +228,22 @@ instance NonTerminal Item where
     Function _ _ _ -> 3
   canSelectRange _ = False
   canDescend _ = True
-  indexC  it ix _ _ _ _ _ _ k _ = case it of
-    Nominal _ i0 tis     -> case ix of
-      0 -> _
-      1 -> _
-    Function  i0 tis blk -> case ix of
-      0 -> _
-      1 -> _
-      2 -> _
-  modifyC it ix _ _ _ _ _ _ k _ = case it of
-    Nominal _ i0 tis     -> case ix of
-      0 -> _
-      1 -> _
-    Function  i0 tis blk -> case ix of
-      0 -> _
-      1 -> _
-      2 -> _
-    where i' = fromIntegral ix
+  indexC  it ix  tis i _ _ _ b _ _ = case it of
+    Nominal _ i0 tis0    -> case ix of
+      0 -> i i0
+      1 -> tis tis0
+    Function  i0 tis0 blk -> case ix of
+      0 -> i i0
+      1 -> tis tis0
+      2 -> b blk
+  modifyC it ix  tis i _ _ _ b _ _ = case it of
+    Nominal s i0 tis0     -> case ix of
+      0 -> (\x -> Nominal s x tis0) <$> i i0
+      1 -> (\x -> Nominal s i0 x) <$> tis tis0
+    Function  i0 tis0 blk -> case ix of
+      0 -> (\x -> Function x tis0 blk) <$> i i0
+      1 -> (\x -> Function i0 x blk) <$> tis tis0
+      2 -> (\x -> Function i0 tis0 x) <$> b blk
 
 instance NonTerminal Block where
   length = fromIntegral . S.length . _block
@@ -255,20 +254,109 @@ instance NonTerminal Block where
     where i' = fromIntegral i
 
 instance NonTerminal Expr where
+  length = \case
+    Ident _ -> 1
+    Decl _ _ -> 2
+    PrimMonOp _ _ -> 1
+    PrimBinOp _ _ _ -> 2
+    App _ s -> fromIntegral (S.length s) + 1
+  canSelectRange = \case
+    App _ _ -> True
+    _ -> False
+  canDescend _ = True
+  indexC  it ix  tis i ti _ e b _ _ = case it of
+    Ident txt -> case ix of
+      0 -> i txt
+    Decl ti0 e0 -> case ix of
+      0 -> ti ti0
+      1 -> e e0
+    PrimMonOp _ e0 -> case ix of
+      0 -> e e0
+    PrimBinOp _ e0 e1 -> case ix of
+      0 -> e e0
+      1 -> e e1
+    App e0 es -> case ix of
+      0 -> e e0
+      n -> e (es `S.index` fromIntegral (n - 1))
+  modifyC  it ix  tis i ti _ e b _ _ = case it of
+    Ident txt -> case ix of
+      0 -> Ident <$> i txt
+    Decl ti0 e0 -> case ix of
+      0 -> (\x -> Decl x e0) <$> ti ti0
+      1 -> (\x -> Decl ti0 x) <$> e e0
+    PrimMonOp s e0 -> case ix of
+      0 -> PrimMonOp s <$> e e0
+    PrimBinOp s e0 e1 -> case ix of
+      0 -> (\x -> PrimBinOp s x e1) <$> e e0
+      1 -> (\x -> PrimBinOp s e0 x) <$> e e1
+    App e0 es -> case ix of
+      0 -> (\x -> App x es) <$> e e0
+      n -> (\x -> App e0 x) <$> flip (S.update n') es <$> e (S.index es n')
+        where n' = fromIntegral $ n - 1
 
 instance NonTerminal Type where
+  length = \case
+    Void             -> 0
+    NumType _ _      -> 0
+    NominalType _ _  -> 1
+    Ptr _            -> 1
+    FunPtr _ ts      -> fromIntegral $ 1 + S.length ts
+  canSelectRange = \case
+    FunPtr _ _ -> True
+    _          -> False
+  canDescend = \case
+    Void            -> False
+    NumType _ _     -> False
+    NominalType _ _ -> True
+    Ptr _           -> True
+    FunPtr _ _      -> True
+  indexC  it ix  tis i ti t _ _ _ _ = case it of
+    Void             -> undefined
+    NumType s nt     -> undefined
+    NominalType s i0 -> case ix of
+      0 -> i i0
+    Ptr t0           -> case ix of
+      0 -> t t0
+    FunPtr t0 ts     -> case ix of
+      0 -> t t0
+      n -> t (ts `S.index` fromIntegral (n - 1))
+  modifyC it ix  tis i ti t _ _ _ _ = case it of
+    Void             -> undefined
+    NumType s nt     -> undefined
+    NominalType s i0 -> case ix of
+      0 -> NominalType s <$> i i0
+    Ptr t0           -> case ix of
+      0 -> Ptr  <$> t t0
+    FunPtr t0 ts     -> case ix of
+      0 -> (\x -> FunPtr x ts) <$> t t0
+      n -> (\x -> FunPtr t0 x) <$> flip (S.update n') ts <$> t (S.index ts n')
+        where n' = fromIntegral $ n - 1
 
 instance NonTerminal TyIdents where
   length = fromIntegral . S.length . _tyIdents
   canSelectRange _ = True
   canDescend _ = True
-  indexC  (TyIdents s) i _ _ _ _ k _ _ _ = k $ S.index s $ fromIntegral i
-  modifyC (TyIdents s) i _ _ _ _ k _ _ _ = TyIdents <$> flip (S.update i') s <$> k (S.index s i')
+  indexC  (TyIdents s) i _ _ k _ _ _ _ _ = k $ S.index s $ fromIntegral i
+  modifyC (TyIdents s) i _ _ k _ _ _ _ _ = TyIdents <$> flip (S.update i') s <$> k (S.index s i')
     where i' = fromIntegral i
 
 instance NonTerminal TyIdent where
+  length _ = 2
+  canSelectRange _ = False
+  canDescend _ = True
+  indexC  (TyIdent t0 i0) ix  _ i _ t _ _ _ _ = case ix of
+    0 -> t t0
+    1 -> i i0
+  modifyC (TyIdent t0 i0) ix  _ i _ t _ _ _ _ = case ix of
+    0 -> (\x -> TyIdent x i0) <$> t t0
+    1 -> (\x -> TyIdent t0 x) <$> i i0
 
 instance NonTerminal Ident where
+  length _ = 0
+  canSelectRange _ = False
+  canDescend _ = False
+  indexC  _ _ _ _ _ _ _ _ _ _ = error "Can't index C ident"
+  modifyC _ _ _ _ _ _ _ _ _ _ = error "Can't modify C ident"
 
 
 
