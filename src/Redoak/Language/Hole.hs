@@ -326,7 +326,9 @@ onEventFilling = \case
     mlen <- apply $ maybeEdit' $ countChoices pf
     case mlen of
       Nothing  -> return ()
-      Just len -> _2 . mode . index %= (\i -> min (i + 1) len)
+      Just len -> _2 . mode . index %= (\i -> min (i + 1) (if len == 0
+                                                           then 0
+                                                           else len - 1))
 
   KeyStroke Down Enter (Modifiers _ _ False) -> do
     pf <- use $ _2 . mode . prefix
