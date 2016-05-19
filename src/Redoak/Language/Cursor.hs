@@ -143,7 +143,7 @@ ascend = (snd <$> getAnn <$> get) >>= \case
       when foundIt $ modify $ modifyAnn $ second $ \(Descend _) ->
         Select $ if useRange
                  then Range (i, i + 1)
-                 else Single $ i + 1
+                 else Single i
 
 -- | Descend into selection, if only one element is selected
 descend :: (NonTerminalAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m)
