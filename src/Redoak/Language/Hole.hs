@@ -108,6 +108,10 @@ instance NonTerminal f => NonTerminal (WithHole f) where
     Unfilled   -> undefined -- could define with Applicative and pure,
                             -- but no valid index in this case anyways
 
+  insertC e i f0 f1 f2 f3 f4 f5 f6 f7 = case e of
+    (Filled e) -> Filled <$> insertC e i f0 f1 f2 f3 f4 f5 f6 f7
+    Unfilled   -> undefined
+
   deleteX b = \case
     Filled e -> Filled $ deleteX b e
     Unfilled -> Unfilled
@@ -116,11 +120,13 @@ type CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7  n ann =
   Cofree8' (WithHole f0) (WithHole f1) (WithHole f2) (WithHole f3)
            (WithHole f4) (WithHole f5) (WithHole f6) (WithHole f7)
            n (ann, Selection)
-type CursorInnerWithHole f f0 f1 f2 f3 f4 f5 f6 f7 ann =
-  CursorInner (WithHole f)
+type CursorInnerWithHoleRaw f f0 f1 f2 f3 f4 f5 f6 f7 ann =
+  CursorInner f
               (WithHole f0) (WithHole f1) (WithHole f2) (WithHole f3)
               (WithHole f4) (WithHole f5) (WithHole f6) (WithHole f7)
               ann
+type CursorInnerWithHole f f0 f1 f2 f3 f4 f5 f6 f7 ann =
+  CursorInnerWithHoleRaw (WithHole f) f0 f1 f2 f3 f4 f5 f6 f7 ann
 
 type EditWithHoleT m  f0 f1 f2 f3 f4 f5 f6 f7  n ann r =
   StateT (CursorWithHole f0 f1 f2 f3 f4 f5 f6 f7  n ann) m r
@@ -147,9 +153,9 @@ makeHole = case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 0) of
           Just prf  -> gcastWith prf $ CF4 <$> ann <*> pure Unfilled
           Nothing -> case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 5) of
             Just prf  -> gcastWith prf $ CF5 <$> ann <*> pure Unfilled
-            Nothing ->case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 6) of
+            Nothing -> case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 6) of
               Just prf  -> gcastWith prf $ CF6 <$> ann <*> pure Unfilled
-              Nothing ->case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 7) of
+              Nothing -> case sameNat (Proxy :: Proxy n) (Proxy :: Proxy 7) of
                 Just prf  -> gcastWith prf $ CF7 <$> ann <*> pure Unfilled
                 Nothing -> undefined
   where
@@ -208,9 +214,21 @@ fill :: forall m n ann r  f0 f1 f2 f3 f4 f5 f6 f7
      => Text
      -> Word
      -> MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
-fill prefix index = local $ modifyT $ f <=< lift . makeChoices prefix
-  where f :: forall x m'. Monad m' => [x] -> MaybeT m' x
+fill prefix index = local $ do
+    (_, Select sel) <- getAnn <$> get
+    case sel of
+      Single _     -> return ()
+      Range (a, b) -> when (a == b) $ do
+        let go :: forall f. NonTerminal f
+               => CursorInnerWithHoleRaw f f0 f1 f2 f3 f4 f5 f6 f7 ann
+               -> MaybeT (FreshT ann m) (CursorInnerWithHoleRaw f f0 f1 f2 f3 f4 f5 f6 f7 ann)
+            go s = lift $ insertC s a makeHole makeHole makeHole makeHole
+                                      makeHole makeHole makeHole makeHole
+        mapStatePoly ntfCls $ modifyT $ go
+        modify $ modifyAnn $ second $ const $ Select $ Range (a, a + 1)
+    let f :: forall x m'. Monad m' => [x] -> MaybeT m' x
         f xs = MaybeT $ return $ safeIndex xs index
+    local' $ modifyT $ f <=< lift . makeChoices prefix
 
 choices :: Completable f => Text -> [f () () () () () () () ()]
 choices prefix = maybeToList (identifier prefix) ++ M.elems (prunePrefix prefix introductions)
@@ -235,7 +253,11 @@ countChoices prefix = local $ do
 
 unfill :: (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
        => MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
-unfill = do
+unfill = local unfillInternal
+
+unfillInternal :: (CompletableAll f0 f1 f2 f3 f4 f5 f6 f7, Monad m, Fresh ann)
+               => MaybeEditWithHoleT (FreshT ann m) f0 f1 f2 f3 f4 f5 f6 f7 n ann ()
+unfillInternal = do
   i <- guardSingle
   mapStatePoly ntfCls $ modifyStateC i $ put =<< lift (lift makeHole)
 
@@ -382,11 +404,13 @@ renderChoices :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
 renderChoices accum = case accum^._2.mode of
   Normal -> return ()
   Filling index prefix -> do
-    let action :: EditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7 7 Word (m ())
-        action = local $ do
+    let action :: MaybeEditWithHoleT Identity f0 f1 f2 f3 f4 f5 f6 f7 7 Word (m ())
+        action = local' $ do
           subtree <- get
           return $ renderChoicesInternal accum index prefix subtree
-    runIdentity $ fmap fst $ runStateT action $ accum^._1
+    case runIdentity $ runMaybeT $ fmap fst $ runStateT action $ accum^._1 of
+      Nothing -> return ()
+      Just m -> m
 
 renderChoicesInternal :: forall t m f0 f1 f2 f3 f4 f5 f6 f7 n a
                                     d0 d1 d2 d3 d4 d5 d6 d7

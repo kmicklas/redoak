@@ -235,6 +235,7 @@ instance NonTerminal Items where
   indexC  (Items s) i _ _ _ _ _ _ k _ = k $ S.index s $ fromIntegral i
   modifyC (Items s) i _ _ _ _ _ _ k _ = Items <$> flip (S.update i') s <$> k (S.index s i')
     where i' = fromIntegral i
+  insertC (Items s) i _ _ _ _ _ _ k _ = Items <$> flip (insertSubSeq i) s <$> k
   deleteX fromFor = items %~ deleteSubSeq fromFor
 
 instance NonTerminal Item where
@@ -259,6 +260,7 @@ instance NonTerminal Item where
       0 -> (\x -> Function x tis0 blk) <$> i i0
       1 -> (\x -> Function i0 x blk) <$> tis tis0
       2 -> (\x -> Function i0 tis0 x) <$> b blk
+  insertC _ _ _ _ _ _ _ _ _ _ = error "Can't insert in C item"
   deleteX _ = id
 
 instance NonTerminal Block where
@@ -268,6 +270,7 @@ instance NonTerminal Block where
   indexC  (Block s) i _ _ _ _ k _ _ _ = k $ S.index s $ fromIntegral i
   modifyC (Block s) i _ _ _ _ k _ _ _ = Block <$> flip (S.update i') s <$> k (S.index s i')
     where i' = fromIntegral i
+  insertC (Block s) i _ _ _ _ k _ _ _ = Block <$> flip (insertSubSeq i) s <$> k
   deleteX fromFor = block %~ deleteSubSeq fromFor
 
 instance NonTerminal Expr where
@@ -310,6 +313,7 @@ instance NonTerminal Expr where
       0 -> (\x -> App x es) <$> e e0
       n -> (\x -> App e0 x) <$> flip (S.update n') es <$> e (S.index es n')
         where n' = fromIntegral $ n - 1
+  insertC _ _ _ _ _ _ _ _ _ _ = error "Can't insert in C expression"
   deleteX _ = id
 
 instance NonTerminal Type where
@@ -349,6 +353,7 @@ instance NonTerminal Type where
       0 -> (\x -> FunPtr x ts) <$> t t0
       n -> (\x -> FunPtr t0 x) <$> flip (S.update n') ts <$> t (S.index ts n')
         where n' = fromIntegral $ n - 1
+  insertC _ _ _ _ _ _ _ _ _ _ = error "Can't insert in C type"
   deleteX _ = id
 
 instance NonTerminal TyIdents where
@@ -358,6 +363,7 @@ instance NonTerminal TyIdents where
   indexC  (TyIdents s) i _ k _ _ _ _ _ _ = k $ S.index s $ fromIntegral i
   modifyC (TyIdents s) i _ k _ _ _ _ _ _ = TyIdents <$> flip (S.update i') s <$> k (S.index s i')
     where i' = fromIntegral i
+  insertC (TyIdents s) i _ k _ _ _ _ _ _ = TyIdents <$> flip (insertSubSeq i) s <$> k
   deleteX fromFor = tyIdents %~ deleteSubSeq fromFor
 
 instance NonTerminal TyIdent where
@@ -370,6 +376,7 @@ instance NonTerminal TyIdent where
   modifyC (TyIdent t0 i0) ix  i _ _ t _ _ _ _ = case ix of
     0 -> (\x -> TyIdent x i0) <$> t t0
     1 -> (\x -> TyIdent t0 x) <$> i i0
+  insertC _ _ _ _ _ _ _ _ _ _ = error "Can't insert in C type-ident"
   deleteX _ = id
 
 instance NonTerminal Ident where
@@ -378,6 +385,7 @@ instance NonTerminal Ident where
   canDescend _ = False
   indexC  _ _ _ _ _ _ _ _ _ _ = error "Can't index C ident"
   modifyC _ _ _ _ _ _ _ _ _ _ = error "Can't modify C ident"
+  insertC _ _ _ _ _ _ _ _ _ _ = error "Can't insert in C ident"
   deleteX _ = id
 
 
@@ -585,7 +593,7 @@ type Term'' n = C n Ann'
 type Trunk  = Term'' 7
 
 initState :: AccumP
-initState = ( (0, Select $ Single 0) `CF7` Unfilled
+initState = ( (0, Select $ Single 0) `CF7` Filled (Items [])
             , Editor
               { _mode = Normal
               , _currentId = 1

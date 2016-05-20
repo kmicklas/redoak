@@ -12,36 +12,37 @@
 
 module Redoak.Languages.Fundamental where
 
-import Control.Lens hiding ((:<))
-import Control.Lens.TH
-import Control.Monad
-import Control.Monad.Identity
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.State
-import Data.Bifoldable
-import Data.Bifunctor
-import Data.Bifunctor.TH
-import Data.Bitraversable
-import Data.Coerce
-import Data.Map (Map, fromList, empty)
-import Data.Maybe
-import Data.MonoTraversable hiding (Element)
-import Data.Monoid
-import Data.Sequence as S hiding ((:<))
-import Data.Sequences as SS
-import Data.Text as T hiding (copy)
-import Data.Void
+import           Control.Lens hiding ((:<))
+import           Control.Lens.TH
+import           Control.Monad
+import           Control.Monad.Identity
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.State
+import           Data.Bifoldable
+import           Data.Bifunctor
+import           Data.Bifunctor.TH
+import           Data.Bitraversable
+import           Data.Coerce
+import           Data.Map (Map, fromList, empty)
+import           Data.Maybe
+import           Data.MonoTraversable hiding (Element)
+import qualified Data.MonoTraversable as SS (Element)
+import           Data.Monoid
+import           Data.Sequence as S hiding ((:<))
+import           Data.Sequences as SS
+import           Data.Text as T hiding (copy)
+import           Data.Void
 
-import Control.Comonad.Cofree8
-import Data.Functor8
-import Data.Foldable8
-import Data.Traversable8
+import           Control.Comonad.Cofree8
+import           Data.Functor8
+import           Data.Foldable8
+import           Data.Traversable8
 
-import Redoak.Event
-import Redoak.Language
-import Redoak.Language.DefaultInput
-import Redoak.Languages.Empty
+import           Redoak.Event
+import           Redoak.Language
+import           Redoak.Language.DefaultInput
+import           Redoak.Languages.Empty
 
 
 data Element a b
@@ -131,15 +132,23 @@ instance IsSequence a => NonTerminal (LiftBf8 Element a) where
     Node _ -> True
 
   indexC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
-    Atom _ -> error "indexC: can't' descend into atom"
+    Atom _ -> error "indexC: can't descend into atom"
     Node s -> k $ S.index s (fromIntegral i)
 
   modifyC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
-    Atom _ -> error "modifyC: can't' descend into atom"1
+    Atom _ -> error "modifyC: can't descend into atom"
     Node s -> LiftBf8 <$> Node <$> flip (S.update i') s <$> k (S.index s i')
       where i' = fromIntegral i
 
+  insertC (LiftBf8 e) i _ _ _ _ _ _ _ k = case e of
+    Atom _ -> error "insertC: can't descend into atom"
+    Node s -> LiftBf8 <$> Node <$> flip (insertSubSeq i) s <$> k
+
   deleteX range = lowerBf8 %~ mapIsSequence (deleteSubSeq range)
+
+insertSubSeq :: forall s. IsSequence s => Word -> SS.Element s -> s -> s
+insertSubSeq at elem seq = lpart <> SS.cons elem rpart
+  where (lpart, rpart) = SS.splitAt (fromIntegral at) seq
 
 deleteSubSeq :: forall s. IsSequence s => Range Word -> s -> s
 deleteSubSeq (from, for) seq = lpart <> rpart

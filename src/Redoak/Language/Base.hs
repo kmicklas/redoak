@@ -47,6 +47,15 @@ class Traversable8 f => NonTerminal f where
           -> (a6 -> m a6)          -> (a7 -> m a7)
           -> m (f a0 a1 a2 a3 a4 a5 a6 a7)
 
+  -- | only valid if `canDescend && canSelectRange`
+  insertC :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
+          .  Functor m
+          => f a0 a1 a2 a3 a4 a5 a6 a7
+          -> Word
+          -> m a0 -> m a1 -> m a2 -> m a3
+          -> m a4 -> m a5 -> m a6 -> m a7
+          -> m (f a0 a1 a2 a3 a4 a5 a6 a7)
+
   -- | No-op if not possible
   deleteX :: forall m b  a0 a1 a2 a3 a4 a5 a6 a7
           .  (Word, Word)
