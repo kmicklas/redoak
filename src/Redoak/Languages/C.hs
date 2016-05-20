@@ -631,6 +631,7 @@ conv' = \case
         NumType _ _     -> id
         NominalType _ _ -> (+1)
         Ptr _           -> id
+        FunPtr _ _      -> id
   CF4 a r -> do
     inner <- convertNT =<< traverse8 conv' conv' conv' conv' conv' conv' conv' conv' r
     return $ rebuild a inner $  case r of
