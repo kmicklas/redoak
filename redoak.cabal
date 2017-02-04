@@ -24,7 +24,7 @@ executable redoak
                     , ImplicitParams
                     , ScopedTypeVariables
 
-  build-depends:      base >=4.8 && <4.9
+  build-depends:      base >=4.9 && <4.10
                     , bifunctors >= 5.1
                     , bytestring
                     , comonad >= 4.2.7.2

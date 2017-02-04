@@ -20,6 +20,7 @@ import           GHCJS.DOM.Document (Document)
 import           GHCJS.DOM.Element (getClientWidth)
 import           Reflex
 import           Reflex.Dom
+import           Reflex.Dom.Widget.Basic
 
 import           Redoak.Editor
 import           Redoak.Event
@@ -30,13 +31,13 @@ import           Redoak.Language
 import           Redoak.View
 
 
-divId :: MonadWidget t m => String -> m a -> m a
+divId :: MonadWidget t m => Text -> m a -> m a
 divId id = elAttr "div" ("id" =: id)
 
-divId' :: MonadWidget t m => String -> m () -> m (El t)
+divId' :: MonadWidget t m => Text -> m () -> m (El t)
 divId' id = fmap fst . elAttr' "div" ("id" =: id)
 
-spanId :: MonadWidget t m => String -> m a -> m a
+spanId :: MonadWidget t m => Text -> m a -> m a
 spanId id = elAttr "span" ("id" =: id)
 
 editor :: MonadWidget t m => Event t (NonEmpty KeyEvent) -> m ()
@@ -69,9 +70,9 @@ editor keys = divId "editor" $ do
               Range (start, end) ->
                 show start ++ if start == end then "" else "-" ++ show end
           ]
-    spanId "path" $ dynText =<< mapDyn (pathString . path) cursors
-    spanId "mode" $ dynText =<< mapDyn T.unpack stati
+    spanId "path" $ dynText =<< mapDyn (T.pack . pathString . path) cursors
+    spanId "mode" $ dynText stati
 
-  _ <- widgetHoldInternal (pure ()) $ updated widgets
+  _ <- widgetHold (pure ()) $ updated widgets
 
   return ()

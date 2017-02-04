@@ -13,6 +13,7 @@ import Redoak.View
 
 
 main :: IO ()
-main = withDocument $ \ webView doc -> do
-  Just body <- getBody doc
-  attachWidget body webView $ editor =<< globalKeyEvents doc
+main = withDocument $ \ webView doc ->
+  withWebViewSingleton webView $ \ view -> do
+    Just body <- getBody doc
+    attachWidget body view $ editor =<< globalKeyEvents doc

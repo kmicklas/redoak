@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Redoak.Languages.Fundamental where
 
@@ -39,7 +40,7 @@ import Data.Foldable8
 import Data.Traversable8
 
 import Redoak.Event
-import Redoak.Language
+import Redoak.Language as L
 import Redoak.Language.DefaultInput
 import Redoak.Languages.Empty
 
@@ -333,16 +334,16 @@ deleteBackward :: (IsSequence a, Fresh ann, Monad m)
 deleteBackward = do
   e <- isEmpty
   if e
-  then moveLeft >> justEdit delete
-  else justEdit delete
+  then moveLeft >> justEdit L.delete
+  else justEdit L.delete
 
 deleteForward :: (IsSequence a, Fresh ann, Monad m)
               => MaybeEditT' (FreshT ann m) a ann ()
 deleteForward = do
   e <- isEmpty
   if e
-  then moveRight >> justEdit delete
-  else justEdit delete
+  then moveRight >> justEdit L.delete
+  else justEdit L.delete
 
 pushNode :: (IsSequence a, Fresh ann, Monad m)
             => MaybeEditT' (FreshT ann m) a ann ()
@@ -380,12 +381,12 @@ onEventNormal = \case
 
   KeyPress 'a' -> apply $ tryEdit selectAll
   KeyPress 's' -> apply $ tryEdit switchBounds
-  KeyPress 'd' -> apply delete
+  KeyPress 'd' -> apply L.delete
   KeyPress 'f' -> apply $ tryEdit selectNoneEnd
   KeyPress 'g' -> apply $ tryEdit selectOne
 
   KeyPress 'c' -> copy
-  KeyPress 'x' -> copy >> apply delete
+  KeyPress 'x' -> copy >> apply L.delete
   KeyPress 'v' -> paste
 
   KeyPress 'n' -> apply insertNode

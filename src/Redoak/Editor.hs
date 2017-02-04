@@ -14,6 +14,7 @@ import           Data.Maybe
 import           Data.Sequence hiding ((:<))
 import           Data.Sequences (IsSequence)
 import           Data.Text (Text)
+import qualified Data.Text as T
 import           Reflex
 import           Reflex.Dom
 
@@ -43,9 +44,9 @@ handleEvents es a = foldl' (flip handleEvent') a es
 
 splitMultiplexed :: MonadWidget t m
                  => Multiplexed
-                 -> (Fundamental.Term', Text, m (), String)
+                 -> (Fundamental.Term', Text, m (), Text)
 splitMultiplexed = \case
-  (Fundamental a) -> (fst a, t, w, show $ a)
+  (Fundamental a) -> (fst a, t, w, T.pack $ show $ a)
     where (t, w) = getMessage a
-  (C a)           -> (C.conv a, t, w, show $ a)
+  (C a)           -> (C.conv a, t, w, T.pack $ show $ a)
     where (t, w) = getMessage a

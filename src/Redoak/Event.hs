@@ -8,7 +8,7 @@ import Data.List.NonEmpty
 import GHCJS.DOM.Document
 import GHCJS.DOM.EventM
 import GHCJS.DOM.KeyboardEvent
-import Reflex.Dom
+import qualified Reflex.Dom as RD
 
 
 data KeyStroke
@@ -54,13 +54,13 @@ getKey = \case
   _  -> Nothing
 
 
-globalKeyEvents :: forall t m. MonadWidget t m
+globalKeyEvents :: forall t m. RD.MonadWidget t m
                 => Document
-                -> m (Event t (NonEmpty KeyEvent))
-globalKeyEvents doc = mergeList <$> sequence
-  [ wrapDomEventMaybe doc (`on` keyDown)  $ bigFatHandler Down
-  , wrapDomEventMaybe doc (`on` keyUp)    $ bigFatHandler Up
-  , wrapDomEvent doc (`on` keyPress) $ KeyPress . toEnum <$> uiCharCode
+                -> m (RD.Event t (NonEmpty KeyEvent))
+globalKeyEvents doc = RD.mergeList <$> sequence
+  [ RD.wrapDomEventMaybe doc (`on` keyDown)  $ bigFatHandler Down
+  , RD.wrapDomEventMaybe doc (`on` keyUp)    $ bigFatHandler Up
+  , RD.wrapDomEvent doc (`on` keyPress) $ KeyPress . toEnum <$> uiCharCode
   ]
   where bigFatHandler t = runMaybeT $ do
           k    <- MaybeT $ getKey <$> uiKeyCode

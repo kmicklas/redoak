@@ -2,6 +2,7 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Redoak.View
   ( ViewInfo(..)
@@ -33,13 +34,13 @@ type View n = Tree Text (ViewInfo n)
 
 makeNode :: MonadWidget t m => View n -> m ()
 makeNode (ViewInfo id cs _ _ :< e) = elAttr typ as $ case e of
-    Atom t  -> text $ T.unpack t
+    Atom t  -> text t
     Node es -> mapM_ makeNode es
   where typ = case e of
           Atom t  -> "span"
           Node es -> "div"
-        as = attrs (T.unpack <$> id) (T.unpack <$> cs)
+        as = attrs id cs
 
-attrs :: Maybe String -> [String] -> AttributeMap
+attrs :: Maybe Text -> [Text] -> AttributeMap
 attrs id classes = M.fromList $
-  [("class", intercalate " " classes)] ++ maybe [] (return . ("id",)) id
+  [("class", T.intercalate " " classes)] ++ maybe [] (return . ("id",)) id
