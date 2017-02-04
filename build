@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 redoak_src_datadir="$(dirname $(readlink -m "$0"))/data"
 cabal build "$@"
 if [ -n "$NIX_GHCJS" ]; then
